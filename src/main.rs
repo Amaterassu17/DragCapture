@@ -94,9 +94,7 @@ impl App for DragApp {
             //Button
             if ui.button("Take a screenshot!").clicked() {
                 //Qua ci sta tipo la routine che toglie il focus dalla finestra e fa lo screenshot alla premuta di un pulsante o anche solo premendo solo questo pulsante. Va legato alla libreria screenshots
-
-
-                // let screens = Screen::all().unwrap();
+                //let screens = Screen::all().unwrap();
 
                 let x= 300;
                 let y = 300;
@@ -109,7 +107,7 @@ impl App for DragApp {
                         selected_screens.push(screen);
                     }
                 }
-                    
+                
                 for (i, screen) in selected_screens.iter().enumerate() {
                     let image = screen.capture_area(x, y, width, height).unwrap();
 
