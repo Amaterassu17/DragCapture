@@ -9,6 +9,7 @@ use image;
 struct DragApp {
     button_text1: String,
     delay_timer: u32,
+    selected_monitors: Vec<bool>,
 }
 
 impl DragApp {
@@ -17,34 +18,105 @@ impl DragApp {
         Self {
             button_text1: "Take a screenshot!".to_owned(),
             delay_timer: 0,
+            selected_monitors: {
+                let screens = Screen::all().unwrap();
+                let mut selected_monitors = Vec::new();
+                for screen in screens.iter() {
+                    selected_monitors.push(false);
+                }
+                selected_monitors
+            },
         }
     }
 
+    // pub fn initiate_drag (&mut self, _ctx: &Context, _frame: &mut Frame, _id: egui::Id, _response: &mut egui::Response, _response_pos: egui::Pos2, _modifiers: egui::Modifiers) {
+    //     //Qua ci sta la routine che toglie il focus dalla finestra e fa lo screenshot alla premuta di un pulsante o anche solo premendo solo questo pulsante. Va legato alla libreria screenshots
+    //     let input = InputState::default();
+    //
+    //     println!("Drag initiated");
+    //     println!("Mouse pos: {:?}", input);
+    //
+    // }
+
+
+    // pub fn initiate_drag_simple (&mut self, _ctx: &Context, _frame: &mut Frame) {
+    //     //Qua ci sta la routine che toglie il focus dalla finestra e fa lo screenshot alla premuta di un pulsante o anche solo premendo solo questo pulsante. Va legato alla libreria screenshots
+    //     _frame.set_minimized(true);
+    //
+    //     let mut inserted_commands = Vec::new();
+    //
+    //     loop {
+    //
+    //         if(_ctx.input((|i| i.key_pressed(Key::)))) {
+    //             println!("Mouse down");
+    //             break;
+    //         }
+    //
+    //         if(_ctx.input(())) {
+    //             println!("Mouse up");
+    //             break;
+    //         }
+    //
+    //         if(_ctx.input(())) {
+    //             println!("Mouse pressed");
+    //             break;
+    //         }
+    //
+    //     }
+    //
+    //     println!("End of loop");
+    //
+    //     //std::thread::sleep(Duration::from_secs(self.delay_timer as u64));
+    //
+    //     let input = _ctx.input(|i| i.clone());
+    //
+    //     println!("Drag initiated");
+    //     println!("Mouse pos: {:?}", input);
+    //
+    //     //I want to start an input state that is a drag
+    //     //First off, we see if any input
+    //
+    //
+    //
+    // }
 
 }
 impl App for DragApp {
 
     //UPDATE è FONDAMENTALE. CI DEVE ESSERE SEMPRE
     fn update(&mut self, ctx: &Context, frame: &mut Frame) {
+        let screens = Screen::all().unwrap();
         CentralPanel::default().show(ctx, |ui| {
             ui.heading("Hello World!");
             ui.label("This is a test for egui and eframe");
             //Button
             if ui.button("Take a screenshot!").clicked() {
                 //Qua ci sta tipo la routine che toglie il focus dalla finestra e fa lo screenshot alla premuta di un pulsante o anche solo premendo solo questo pulsante. Va legato alla libreria screenshots
-                let screens = Screen::all().unwrap();
 
-                for screen in screens {
 
-                    let image = screen.capture_area(300, 300, 300, 300).unwrap();
+                // let screens = Screen::all().unwrap();
+
+                    let mut selected_screens = Vec::new();
+                    for (i, screen) in screens.iter().enumerate() {
+                        if self.selected_monitors[i] {
+                            selected_screens.push(screen);
+                        }
+                    }
+
+
+                for (i, screen) in selected_screens.iter().enumerate() {
+                    let image = screen.capture_area(0, 0, screen.display_info.width, screen.display_info.height).unwrap();
+
                     let buffer = image.to_png(None).unwrap();
-                    let img=  image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap(); 
+                    let img=  image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
                     img.save(format!("target/{}.png", screen.display_info.id)).expect("Error");
                     img.save(format!("target/{}.jpg", screen.display_info.id)).expect("Error");
                     img.save(format!("target/{}.gif", screen.display_info.id)).expect("Error");
                 }
 
-                
+
+
+
             }
             if ui.button("Customize Hotkeys").clicked() {
                 //ROUTINE PER CAMBIARE GLI HOTKEYS. deve essere tipo una sotto finestra da cui togli focus e non puoi ricliccare su quella originale finchè non chiudi la sottofinestra. Al massimo ci confrontiamo con alessio
@@ -58,13 +130,38 @@ impl App for DragApp {
                     _ => {}
                 }
             }
+
+
+
+            //Container Combo box for dropdown menu
+
+            ui.vertical_centered(|ui| {
+                ui.label("Select monitor: ");
+                ui.separator();
+                ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
+                    ui.vertical_centered(|ui| {
+
+                        for (i, screen) in screens.iter().enumerate() {
+                            ui.horizontal(|ui| {
+                                ui.checkbox(&mut self.selected_monitors[i], "");
+                                ui.label(format!("Monitor {}", i));
+                            });
+                        }
+                    });
+                });
+            });
+
             if ui.button("Quit").clicked() {
                 //Routine per chiudere il programma
                 std::process::exit(0);
             }
 
+
+
         });
     }
+
+
 
     // DA QUI IN POI SONO TUTTE OPZIONALI. NON DOVREBBE SERVIRE IMPLEMENTARLE A MENO DI COSE SPECIFICHE TIPO HOTKEY BOH LA SPARO A CASO
     // fn save(&mut self, _storage: &mut dyn Storage) {
