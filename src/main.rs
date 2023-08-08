@@ -3,6 +3,8 @@ use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContex
 use eframe::emath::Vec2;
 use egui;
 use egui::{Context, Visuals};
+use screenshots::{Screen, Compression};
+use std::{fs};
 
 struct DragApp {
     button_text1: String,
@@ -30,7 +32,16 @@ impl App for DragApp {
             //Button
             if ui.button("Take a screenshot!").clicked() {
                 //Qua ci sta tipo la routine che toglie il focus dalla finestra e fa lo screenshot alla premuta di un pulsante o anche solo premendo solo questo pulsante. Va legato alla libreria screenshots
+                let screens = Screen::all().unwrap();
 
+                for screen in screens {
+
+                    let image = screen.capture_area(300, 300, 300, 300).unwrap();
+                    let buffer = image.to_png(None).unwrap();
+                    fs::write(format!("target/{}.png", screen.display_info.id), buffer).unwrap();
+                }
+
+                
             }
             if ui.button("Customize Hotkeys").clicked() {
                 //ROUTINE PER CAMBIARE GLI HOTKEYS. deve essere tipo una sotto finestra da cui togli focus e non puoi ricliccare su quella originale finchè non chiudi la sottofinestra. Al massimo ci confrontiamo con alessio
