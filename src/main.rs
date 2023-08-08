@@ -5,7 +5,7 @@ use egui;
 use egui::{Context, Visuals};
 use screenshots::{Screen, Compression};
 use std::{fs};
-
+use image;
 struct DragApp {
     button_text1: String,
     delay_timer: u32,
@@ -38,7 +38,10 @@ impl App for DragApp {
 
                     let image = screen.capture_area(300, 300, 300, 300).unwrap();
                     let buffer = image.to_png(None).unwrap();
-                    fs::write(format!("target/{}.png", screen.display_info.id), buffer).unwrap();
+                    let img=  image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap(); 
+                    img.save(format!("target/{}.png", screen.display_info.id)).expect("Error");
+                    img.save(format!("target/{}.jpg", screen.display_info.id)).expect("Error");
+                    img.save(format!("target/{}.gif", screen.display_info.id)).expect("Error");
                 }
 
                 
