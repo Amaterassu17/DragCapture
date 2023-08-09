@@ -10,7 +10,11 @@ egui = "0.22.0"
 image="*"
 screenshots = "0.7.0"
 hotkey = "0.3.1"
+imageproc = "0.23.0"
+arboard = "*"
 serde = { version = "1.0.178", features = ["derive"]}
 epaint = "0.22.0"
 egui_glium = "0.20.1"
+egui_extras = "0.22.0"
 eframe = "0.22.0"
+
