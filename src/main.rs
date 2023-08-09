@@ -3,18 +3,21 @@ use std::time::Duration;
 use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContext};
 use eframe::emath::Vec2;
 use egui;
-use egui::{Context, Image, Rect, Visuals, Window};
+use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions};
 use egui_extras::RetainedImage;
 use screenshots::{Screen, Compression};
+use screenshots;
 use std::{fs};
 use image::*;
 use arboard::*;
+use epaint::ColorImage;
+
 struct DragApp {
     button_text1: String,
     delay_timer: u32,
     selected_monitor: u32,
     screenshot_taken: bool,
-    image: egui::ImageData,
+    image: DynamicImage,
 }
 
 struct Captured_Image {
@@ -29,6 +32,30 @@ impl Captured_Image {
     }
 }
 
+//PROVA
+
+struct MyImage {
+    texture: Option<egui::TextureHandle>,
+}
+
+impl MyImage {
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        let texture: &egui::TextureHandle = self.texture.get_or_insert_with(|| {
+            // Load the texture only once.
+            ui.ctx().load_texture(
+                "my-image",
+                egui::ColorImage::example(),
+                Default::default()
+            )
+        });
+
+        // Show the image:
+        ui.image(texture, texture.size_vec2());
+    }
+}
+
+
+
 impl DragApp {
     pub fn new(cc: &CreationContext<'_>) -> Self {
         //Qua dobbiamo mettere il setup di eventuali font eccetera
@@ -37,7 +64,7 @@ impl DragApp {
             delay_timer: 0,
             selected_monitor: 0,
             screenshot_taken: false,
-            image:// Da definire
+            image: DynamicImage::default()// Da definire
         }
     }
 
@@ -92,6 +119,16 @@ impl DragApp {
     //
     // }
 
+
+    pub fn load_image_from_memory(image: DynamicImage) -> Result<ColorImage, image::ImageError> {
+        let size = [image.width() as _, image.height() as _];
+        let image_buffer = image.to_rgba8();
+        let pixels = image_buffer.as_flat_samples();
+        Ok(ColorImage::from_rgba_unmultiplied(
+            size,
+            pixels.as_slice(),
+        ))
+    }
 }
 impl App for DragApp {
 
@@ -116,30 +153,36 @@ impl App for DragApp {
 
                     let mut selected_screen = screens[self.selected_monitor as usize].clone();
 
-
                     let image = selected_screen.capture_area(x, y, width, height).unwrap();
+
+                    let buffer = image.to_png(Compression::Fast).unwrap();
+                    let img=  image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
+
+                    self.image = img.clone();
                     self.screenshot_taken= true;
 
 
-                    let buffer = image.to_png(None).unwrap();
-                    let img=  image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
 
 
-
-
-                    img.save(format!("target/{}.png", selected_screen.display_info.id)).expect("Error");
-                    // img.save(format!("target/{}.jpg", screen.display_info.id)).expect("Error");
-                    // img.save(format!("target/{}.gif", screen.display_info.id)).expect("Error");
-                    let mut clipboard = Clipboard::new().unwrap();
-                    let r=img.resize(width, height, imageops::FilterType::Lanczos3).into_rgba8();
-                    let (w,h)=r.dimensions();
-                    let img = ImageData {
-                        width: usize::try_from(w).unwrap(),
-                        height: usize::try_from(h).unwrap(),
-                        bytes: Cow::from(r.as_bytes())
-                    };
-
-                    clipboard.set_image(img);
+                    // let buffer = image.to_png(None).unwrap();
+                    // let img=  image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
+                    //
+                    //
+                    //
+                    //
+                    // img.save(format!("target/{}.png", selected_screen.display_info.id)).expect("Error");
+                    // // img.save(format!("target/{}.jpg", screen.display_info.id)).expect("Error");
+                    // // img.save(format!("target/{}.gif", screen.display_info.id)).expect("Error");
+                    // let mut clipboard = Clipboard::new().unwrap();
+                    // let r=img.resize(width, height, imageops::FilterType::Lanczos3).into_rgba8();
+                    // let (w,h)=r.dimensions();
+                    // let img = ImageData {
+                    //     width: usize::try_from(w).unwrap(),
+                    //     height: usize::try_from(h).unwrap(),
+                    //     bytes: Cow::from(r.as_bytes())
+                    // };
+                    //
+                    // clipboard.set_image(img);
 
 
 
@@ -200,10 +243,18 @@ impl App for DragApp {
                     std::process::exit(0);
                 }
 
-                let texture = ui.ctx().load_texture("Screenshot", &self.image, Default::default());
+                // let image_buffer= ImageBuffer::from_raw(self.image.1, self.image.2, self.image.0.clone()).unwrap().save("target/screenshot.png").unwrap();
 
-                ui.image(texture, texture.size_vec2())
+                // let texture : TextureHandle = ui.ctx().load_texture("Screenshot", self.image.0.clone(), TextureOptions::default());
 
+                // ui.image(texture, texture.size_vec2());
+
+
+
+                let color_image = DragApp::load_image_from_memory(self.image.clone()).unwrap();
+                let texture = ui.ctx().load_texture("ScreenShot", color_image, TextureOptions::default());
+
+                ui.image(&texture, texture.size_vec2());
 
 
             });
