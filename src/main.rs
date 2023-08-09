@@ -96,10 +96,10 @@ impl App for DragApp {
                 //Qua ci sta tipo la routine che toglie il focus dalla finestra e fa lo screenshot alla premuta di un pulsante o anche solo premendo solo questo pulsante. Va legato alla libreria screenshots
                 //let screens = Screen::all().unwrap();
 
-                let x= 300;
-                let y = 300;
-                let width= 300;
-                let height=300;
+                let x= 0;
+                let y = 0;
+                let width= 1000;
+                let height= 1000;
 
                 let mut selected_screens = Vec::new();
                 for (i, screen) in screens.iter().enumerate() {
@@ -107,11 +107,11 @@ impl App for DragApp {
                         selected_screens.push(screen);
                     }
                 }
-                
+
                 for (i, screen) in selected_screens.iter().enumerate() {
                     let image = screen.capture_area(x, y, width, height).unwrap();
 
-                    let buffer = image.to_png(None).unwrap();
+                    let buffer = image.to_png(Compression::Fast).unwrap();
                     let img=  image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
                     img.save(format!("target/{}.png", screen.display_info.id)).expect("Error");
                     img.save(format!("target/{}.jpg", screen.display_info.id)).expect("Error");
