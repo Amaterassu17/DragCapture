@@ -1,32 +1,33 @@
 use std::borrow::Cow;
 use std::time::Duration;
 use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContext};
-use eframe::emath::Vec2;
 use egui;
-use egui::{Context, Image, Rect, Visuals, Window};
-use egui_extras::RetainedImage;
+use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions};
 use screenshots::{Screen, Compression};
+use screenshots;
 use std::{fs};
 use image::*;
 use arboard::*;
+use egui::Align::Center;
+use epaint::ColorImage;
+use image::ImageError::IoError;
+use std::error::Error;
+
+
+
+
+
 struct DragApp {
     button_text1: String,
     delay_timer: u32,
     selected_monitor: u32,
-    screenshot_taken: bool,
-    image: egui::ImageData,
-}
-
-struct Captured_Image {
-    texture : Option<egui::TextureHandle>
-}
-
-impl Captured_Image {
-    fn ui (&mut self, ui: &mut eframe::egui::Ui) {
-        if let Some(texture) = &self.texture {
-            ui.image(texture, Vec2::new(300.0, 300.0));
-        }
-    }
+    mode: String,
+    image: DynamicImage,
+    current_name: String,
+    current_path: String,
+    current_format: String,
+    current_width: i32,
+    current_height: i32,
 }
 
 impl DragApp {
@@ -36,8 +37,14 @@ impl DragApp {
             button_text1: "Take a screenshot!".to_owned(),
             delay_timer: 0,
             selected_monitor: 0,
-            screenshot_taken: false,
-            image:// Da definire
+            mode: "initial".to_string(),
+            image: DynamicImage::default(),
+            current_width: 0,
+            current_height: 0,
+            current_name: "".to_string(),
+            current_path: "".to_string(),
+            current_format: "".to_string(),
+
         }
     }
 
@@ -92,6 +99,25 @@ impl DragApp {
     //
     // }
 
+
+    pub fn load_image_from_memory(image: DynamicImage) -> Result<ColorImage, image::ImageError> {
+        let size = [image.width() as _, image.height() as _];
+        let image_buffer = image.to_rgba8();
+        let pixels = image_buffer.as_flat_samples();
+        Ok(ColorImage::from_rgba_unmultiplied(
+            size,
+            pixels.as_slice(),
+        ))
+    }
+    pub fn save_image_to_disk(&mut self, format: &str, path: &str, filename: &str) -> Result<(), Box<dyn Error>> {
+        match format {
+            "png" => self.image.clone().save(format!("{}/{}.png", path, filename))?,
+            "gif" => self.image.clone().save(format!("{}/{}.gif", path, filename))?,
+            "jpg" => self.image.clone().save(format!("{}/{}.jpg", path, filename))?,
+            _ => return Ok(()),
+        }
+        Ok(())
+    }
 }
 impl App for DragApp {
 
@@ -100,38 +126,110 @@ impl App for DragApp {
 
         let screens = Screen::all().unwrap();
 
-        if self.screenshot_taken==false {
-            CentralPanel::default().show(ctx, |ui| {
-                ui.heading("Hello World!");
-                ui.label("This is a test for egui and eframe");
-                //Button
-                if ui.button("Take a screenshot!").clicked() {
-                    //Qua ci sta tipo la routine che toglie il focus dalla finestra e fa lo screenshot alla premuta di un pulsante o anche solo premendo solo questo pulsante. Va legato alla libreria screenshots
-                    //let screens = Screen::all().unwrap();
+        match self.mode.as_str() {
+            "initial" => {
 
-                    let x= 300;
-                    let y = 300;
-                    let width= 300;
-                    let height=300;
-
-                    let mut selected_screen = screens[self.selected_monitor as usize].clone();
-
-
-                    let image = selected_screen.capture_area(x, y, width, height).unwrap();
-                    self.screenshot_taken= true;
-
-
-                    let buffer = image.to_png(None).unwrap();
-                    let img=  image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
+                CentralPanel::default().show(ctx, |ui| {
+                    ui.heading("Hello World!");
+                    ui.label("This is a test for egui and eframe");
+                    //Button
+                    if ui.button("Take a screenshot!").clicked() {
+                        //Qua ci sta tipo la routine che toglie il focus dalla finestra e fa lo screenshot alla premuta di un pulsante o anche solo premendo solo questo pulsante. Va legato alla libreria screenshots
+                        //let screens = Screen::all().unwrap();
 
 
 
+                        let mut selected_screen = screens[self.selected_monitor as usize].clone();
+                        let x= 0;
+                        let y = 0;
+                        let width=selected_screen.display_info.width;
+                        let height=selected_screen.display_info.height;
+                        std::thread::sleep(Duration::from_secs(self.delay_timer as u64));
 
-                    img.save(format!("target/{}.png", selected_screen.display_info.id)).expect("Error");
-                    // img.save(format!("target/{}.jpg", screen.display_info.id)).expect("Error");
-                    // img.save(format!("target/{}.gif", screen.display_info.id)).expect("Error");
+                        let image = selected_screen.capture_area(x, y, width, height).unwrap();
+
+
+
+                        let buffer = image.to_png(None).unwrap();
+                        let img=  image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
+                        let img = img.resize(width/2, height/2, imageops::FilterType::Lanczos3);
+
+                        self.image = img.clone();
+                        self.mode="taken".to_string();
+                    }
+                    if ui.button("Customize Hotkeys").clicked() {
+                        //ROUTINE PER CAMBIARE GLI HOTKEYS. deve essere tipo una sotto finestra da cui togli focus e non puoi ricliccare su quella originale finchè non chiudi la sottofinestra. Al massimo ci confrontiamo con alessio
+                    }
+                    if ui.button("Delay Timer = ".to_owned() + &self.delay_timer.to_string()).clicked() {
+                        match self.delay_timer {
+                            0 => self.delay_timer = 1,
+                            1 => self.delay_timer = 3,
+                            3 => self.delay_timer = 5,
+                            5 => self.delay_timer = 0,
+                            _ => {}
+                        }
+                    }
+
+                    //Container Combo box for dropdown menu
+
+                    ui.vertical_centered(|ui| {
+                        ui.label("Select monitor: ");
+                        ui.separator();
+                        ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
+                            ui.vertical_centered(|ui| {
+
+                                for (i, screen) in screens.iter().enumerate() {
+                                    ui.horizontal(|ui| {
+
+                                        //Radio button for selection
+                                        ui.radio_value(&mut self.selected_monitor, i as u32, "Monitor ".to_string() + &i.to_string());
+                                    });
+                                }
+                            });
+                        });
+                    });
+
+                    if ui.button("Quit").clicked() {
+                        //Routine per chiudere il programma
+                        std::process::exit(0);
+                    }
+
+                });
+
+
+            },
+             "taken" => {
+                CentralPanel::default().show(ctx, |ui| {
+                ui.heading("Screenshot taken!");
+                ui.label("Screenshot taken and copied to clipboard");
+                if ui.button("Take another screenshot").clicked() {
+                    self.mode="initial".to_string();
+                }
+                if ui.button("Quit").clicked() {
+                    //Routine per chiudere il programma
+                    std::process::exit(0);
+                }
+
+                // let image_buffer= ImageBuffer::from_raw(self.image.1, self.image.2, self.image.0.clone()).unwrap().save("target/screenshot.png").unwrap();
+
+                // let texture : TextureHandle = ui.ctx().load_texture("Screenshot", self.image.0.clone(), TextureOptions::default());
+
+                // ui.image(texture, texture.size_vec2());
+
+
+
+                let color_image = DragApp::load_image_from_memory(self.image.clone()).unwrap();
+                self.current_width= color_image.size[0] as i32;
+                self.current_height= color_image.size[1] as i32;
+                let texture = ui.ctx().load_texture("ScreenShot", color_image, TextureOptions::default());
+
+                ui.image(&texture, texture.size_vec2());
+
+                if ui.button("Copy to clipboard").clicked() {
+                    //Routine per copiare l'immagine negli appunti
+
                     let mut clipboard = Clipboard::new().unwrap();
-                    let r=img.resize(width, height, imageops::FilterType::Lanczos3).into_rgba8();
+                    let r=self.image.resize(self.current_width as u32, self.current_height as u32, imageops::FilterType::Lanczos3).into_rgba8();
                     let (w,h)=r.dimensions();
                     let img = ImageData {
                         width: usize::try_from(w).unwrap(),
@@ -139,75 +237,87 @@ impl App for DragApp {
                         bytes: Cow::from(r.as_bytes())
                     };
 
-                    clipboard.set_image(img);
-
-
-
+                    clipboard.set_image(img).expect("Error in copying to clipboard");
 
                 }
-                if ui.button("Customize Hotkeys").clicked() {
-                    //ROUTINE PER CAMBIARE GLI HOTKEYS. deve essere tipo una sotto finestra da cui togli focus e non puoi ricliccare su quella originale finchè non chiudi la sottofinestra. Al massimo ci confrontiamo con alessio
-                }
-                if ui.button("Delay Timer = ".to_owned() + &self.delay_timer.to_string()).clicked() {
-                    match self.delay_timer {
-                        0 => self.delay_timer = 1,
-                        1 => self.delay_timer = 3,
-                        3 => self.delay_timer = 5,
-                        5 => self.delay_timer = 0,
-                        _ => {}
-                    }
+
+                if ui.button("Save").clicked() {
+                    self.mode= "saving".to_string();
                 }
 
 
+            });
+            },
+            "saving"=> {
 
-                //Container Combo box for dropdown menu
+                CentralPanel::default().show(ctx, |ui| {
 
-                ui.vertical_centered(|ui| {
-                    ui.label("Select monitor: ");
-                    ui.separator();
-                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
-                        ui.vertical_centered(|ui| {
+                    ui.heading("Choose a path, a name and a format for your screenshot");
 
-                            for (i, screen) in screens.iter().enumerate() {
-                                ui.horizontal(|ui| {
-
-                                    //Radio button for selection
-                                    ui.radio_value(&mut self.selected_monitor, i as u32, "Monitor ".to_string() + &i.to_string());
-                                });
-                            }
+                    ui.vertical(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.label("Path: ");
+                            ui.text_edit_singleline(&mut self.current_path);
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("Name: ");
+                            ui.text_edit_singleline(&mut self.current_name);
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("Format: ");
+                            ui.radio_value(&mut self.current_format, ".png".to_string(), ".png".to_string());
+                            ui.radio_value(&mut self.current_format, ".jpg".to_string(), ".jpg".to_string());
+                            ui.radio_value(&mut self.current_format, ".gif".to_string(), ".gif".to_string());
                         });
                     });
+
+                    if ui.button("Save").clicked() {
+
+                       let res = self.save_image_to_disk(self.current_format.clone().as_str(), self.current_path.clone().as_str(), self.current_name.clone().as_str());
+                          match res {
+                            Ok(_) => {
+                                 self.mode="saved".to_string();
+                            }
+                            Err(_) => {
+                                 self.mode="error".to_string();
+                            }
+                          }
+
+                    }
+
                 });
 
-                if ui.button("Quit").clicked() {
-                    //Routine per chiudere il programma
-                    std::process::exit(0);
-                }
-
-
-
-            });
+            },
+            "hotkey" => {},
+            "saved" => {
+                CentralPanel::default().show(ctx, |ui| {
+                    ui.heading("Screenshot saved!");
+                    ui.label("Screenshot saved to disk");
+                    if ui.button("Take another screenshot").clicked() {
+                        self.mode="initial".to_string();
+                    }
+                    if ui.button("Quit").clicked() {
+                        //Routine per chiudere il programma
+                        std::process::exit(0);
+                    }
+                });
+            },
+            "error" => {
+                CentralPanel::default().show(ctx, |ui| {
+                    ui.heading("Error");
+                    ui.label("Something went wrong");
+                    if ui.button("Take another screenshot").clicked() {
+                        self.mode="initial".to_string();
+                    }
+                    if ui.button("Quit").clicked() {
+                        //Routine per chiudere il programma
+                        std::process::exit(0);
+                    }
+                });
+            }
+            _ => {}
         }
-        else {
-            CentralPanel::default().show(ctx, |ui| {
-                ui.heading("Screenshot taken!");
-                ui.label("Screenshot taken and copied to clipboard");
-                if ui.button("Take another screenshot").clicked() {
-                    self.screenshot_taken=false;
-                }
-                if ui.button("Quit").clicked() {
-                    //Routine per chiudere il programma
-                    std::process::exit(0);
-                }
 
-                let texture = ui.ctx().load_texture("Screenshot", &self.image, Default::default());
-
-                ui.image(texture, texture.size_vec2())
-
-
-
-            });
-        }
     }
 
 
@@ -257,8 +367,23 @@ impl App for DragApp {
 fn main() -> Result<(), eframe::Error>{
     //Test for egui and eframe
 
+    let mut screen_sizes: [u32; 2] = [1920, 1080];
+
+    for screen in Screen::all().unwrap().iter(){
+        if screen.display_info.is_primary {
+            screen_sizes[0] = screen.display_info.width;
+            screen_sizes[1] = screen.display_info.height;
+
+        }
+    }
+
     let native_options = eframe::NativeOptions {
-        initial_window_size: Some(egui::Vec2::new(400.0, 400.0)),
+        initial_window_size: Some(egui::Vec2::new((screen_sizes[0] as f32/ 1.5), (screen_sizes[1] as f32/ 1.5))),
+        always_on_top:true,
+        resizable: true,
+        follow_system_theme: true,
+        centered: true
+        ,
         ..Default::default()
     };
     run_native("DragCapture", native_options, Box::new(|cc| Box::new(DragApp::new(cc))))
