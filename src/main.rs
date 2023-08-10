@@ -124,6 +124,13 @@ impl App for DragApp {
     //UPDATE è FONDAMENTALE. CI DEVE ESSERE SEMPRE
     fn update(&mut self, ctx: &Context, frame: &mut Frame) {
 
+        let red   = image::Rgba([255u8, 0u8,   0u8, 255u8]);
+        let green = image::Rgba([0u8,   255u8, 0u8, 255u8]);
+        let blue  = image::Rgba([0u8,   0u8,   255u8, 255u8]);
+        let white = image::Rgba([255u8, 255u8, 255u8, 255u8]);
+        let black = image::Rgba([0u8, 0u8, 0u8, 255u8]);
+
+
         let screens = Screen::all().unwrap();
 
         match self.mode.as_str() {
@@ -209,7 +216,24 @@ impl App for DragApp {
                     //Routine per chiudere il programma
                     std::process::exit(0);
                 }
+                if ui.button("Arrow").clicked() {
+                    
+                    
+                }
+                if ui.button("Circle").clicked() {
+                    self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(&mut self.image, (100, 100), 10, red));
+                }
+                if ui.button("Line").clicked() {
+                    self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&mut self.image, (100.0, 100.0), (110.0, 110.0),black ));
 
+                }if ui.button("Rectangle").clicked() {
+                    self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_rect(&mut self.image,  imageproc::rect::Rect::at(1, 1).of_size(200, 200), white));
+
+                }
+                if ui.button("Crop").clicked() {
+                    
+                    
+                }
                 // let image_buffer= ImageBuffer::from_raw(self.image.1, self.image.2, self.image.0.clone()).unwrap().save("target/screenshot.png").unwrap();
 
                 // let texture : TextureHandle = ui.ctx().load_texture("Screenshot", self.image.0.clone(), TextureOptions::default());
