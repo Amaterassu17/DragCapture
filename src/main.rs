@@ -12,9 +12,9 @@ use egui::Align::Center;
 use epaint::ColorImage;
 use image::ImageError::IoError;
 use std::error::Error;
-
-
-
+use std::path::Path;
+use dirs;
+use chrono;
 
 
 struct DragApp {
@@ -41,9 +41,9 @@ impl DragApp {
             image: DynamicImage::default(),
             current_width: 0,
             current_height: 0,
-            current_name: "".to_string(),
-            current_path: "".to_string(),
-            current_format: "".to_string(),
+            current_name: chrono::Local::now().format("%Y_%m_%d_%H_%M_%S").to_string(),
+            current_path: dirs::picture_dir().unwrap().to_str().unwrap().to_string(),
+            current_format: ".png".to_string(),
 
         }
     }
@@ -110,6 +110,9 @@ impl DragApp {
         ))
     }
     pub fn save_image_to_disk(&mut self, format: &str, path: &str, filename: &str) -> Result<(), Box<dyn Error>> {
+
+        //Non sappiamo come gestire il fatto della sovrascrizione. Nel caso non è gestito
+
         match format {
             "png" => self.image.clone().save(format!("{}/{}.png", path, filename))?,
             "gif" => self.image.clone().save(format!("{}/{}.gif", path, filename))?,
@@ -273,15 +276,30 @@ impl App for DragApp {
 
                     if ui.button("Save").clicked() {
 
-                       let res = self.save_image_to_disk(self.current_format.clone().as_str(), self.current_path.clone().as_str(), self.current_name.clone().as_str());
-                          match res {
-                            Ok(_) => {
-                                 self.mode="saved".to_string();
+
+
+                        match self.current_path.as_str() {
+
+                            "" => {ui.heading("Please insert a path");
+                                ()
+                            },
+
+                            _ => {
+
+
+                                let res = self.save_image_to_disk(self.current_format.clone().as_str(), self.current_path.clone().as_str(), self.current_name.clone().as_str());
+                                match res {
+                                    Ok(_) => {
+                                        self.mode="saved".to_string();
+                                    }
+                                    Err(_) => {
+                                        self.mode="error".to_string();
+                                    }
+                                }
                             }
-                            Err(_) => {
-                                 self.mode="error".to_string();
-                            }
-                          }
+                        }
+                        
+
 
                     }
 

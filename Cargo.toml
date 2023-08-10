@@ -17,4 +17,6 @@ epaint = "0.22.0"
 egui_glium = "0.20.1"
 egui_extras = "0.22.0"
 eframe = "0.22.0"
+dirs = "5.0.1"
+chrono = "0.4.26"
 
