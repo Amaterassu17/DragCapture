@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::time::Duration;
 use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContext};
-use egui;
+use egui::{self, InputState};
 use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions};
 use imageproc::point::Point;
 use screenshots::{Screen, Compression};
@@ -29,6 +29,7 @@ struct DragApp {
     current_format: String,
     current_width: i32,
     current_height: i32,
+    input : InputState,
 }
 
 impl DragApp {
@@ -45,7 +46,7 @@ impl DragApp {
             current_name: chrono::Local::now().format("%Y_%m_%d_%H_%M_%S").to_string(),
             current_path: dirs::picture_dir().unwrap().to_str().unwrap().to_string(),
             current_format: ".png".to_string(),
-
+            input: InputState::default(),
         }
     }
 
@@ -150,6 +151,7 @@ impl DragApp {
         return image::DynamicImage::ImageRgba8( imageproc::drawing::draw_polygon(&img, arrowhead_points, color));
       }
 }
+
 impl App for DragApp {
 
     //UPDATE è FONDAMENTALE. CI DEVE ESSERE SEMPRE
@@ -163,7 +165,7 @@ impl App for DragApp {
 
 
         let screens = Screen::all().unwrap();
-
+        println!("{}", self.input.pointer.has_pointer());
         match self.mode.as_str() {
             "initial" => {
 
@@ -250,6 +252,7 @@ impl App for DragApp {
                 if ui.button("Arrow").clicked() {
                     self.image= DragApp::draw_arrow(&self.image, 300.0, 300.0, 270.0, 250.0, green);
                     
+
                 }
                 if ui.button("Circle").clicked() {
                     self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(&mut self.image, (100, 100), 10, red));
@@ -263,6 +266,7 @@ impl App for DragApp {
                 }
                 if ui.button("Crop").clicked() {
                     
+                    self.image= image::DynamicImage::ImageRgba8(image::imageops::crop(&mut self.image.clone(), 0,0, 600, 20).to_image());
                     
                 }
                 // let image_buffer= ImageBuffer::from_raw(self.image.1, self.image.2, self.image.0.clone()).unwrap().save("target/screenshot.png").unwrap();
