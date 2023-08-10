@@ -29,6 +29,8 @@ struct DragApp {
     current_format: String,
     current_width: i32,
     current_height: i32,
+    hotkey_init : bool,
+    hotkeys: Vec<(i32, u32, u32, &'static str)>
 }
 
 impl DragApp {
@@ -45,6 +47,8 @@ impl DragApp {
             current_name: chrono::Local::now().format("%Y_%m_%d_%H_%M_%S").to_string(),
             current_path: dirs::picture_dir().unwrap().to_str().unwrap().to_string(),
             current_format: ".png".to_string(),
+            hotkey_init : false,
+            hotkeys: Vec::new(), 
 
         }
     }
@@ -100,7 +104,31 @@ impl DragApp {
     //
     // }
 
-
+pub fn init_hotkey(&mut self,hotkey_listener: &mut Listener) /*-> Vec<(i32, u32,u32, &'static str)> */{
+        let hotkey_data = [
+            (keys::CAPS_LOCK, "Screenshot", modifiers::CONTROL | modifiers::SHIFT),
+            (keys::ENTER, "Drag and Drop", modifiers::CONTROL | modifiers::SHIFT),
+            (keys::SPACEBAR, "Edit", modifiers::CONTROL | modifiers::ALT),
+        ];
+    
+    
+        for &(key, message, modifiers_value) in &hotkey_data {
+            match hotkey_listener.register_hotkey(modifiers_value, key, move || {
+                println!("{}", message);
+            }) {
+                Ok(id) => {
+                    println!("Hotkey registered with ID: {:?}", id);
+                    self.hotkeys.push((id, modifiers_value, key, message));
+                }
+                Err(err) => {
+                    println!("Failed to register hotkey. Error: {}", err);
+                }
+            }
+        }
+    
+        println!("Registered Hotkey Info: {:?}",self.hotkeys/* hotkey_info*/);
+        //hotkey_info
+    }
     pub fn load_image_from_memory(image: DynamicImage) -> Result<ColorImage, image::ImageError> {
         let size = [image.width() as _, image.height() as _];
         let image_buffer = image.to_rgba8();
@@ -160,7 +188,12 @@ impl App for DragApp {
         let blue  = image::Rgba([0u8,   0u8,   255u8, 255u8]);
         let white = image::Rgba([255u8, 255u8, 255u8, 255u8]);
         let black = image::Rgba([0u8, 0u8, 0u8, 255u8]);
-
+       
+         if !self.hotkey_init{
+            let mut hotkey_listener = Listener::new();
+            self.init_hotkey(&mut hotkey_listener);
+            self.hotkey_init=true;
+            }
 
         let screens = Screen::all().unwrap();
 
@@ -197,6 +230,7 @@ impl App for DragApp {
                     }
                     if ui.button("Customize Hotkeys").clicked() {
                         //ROUTINE PER CAMBIARE GLI HOTKEYS. deve essere tipo una sotto finestra da cui togli focus e non puoi ricliccare su quella originale finchè non chiudi la sottofinestra. Al massimo ci confrontiamo con alessio
+                         println!("Hotkey Info: {:?}", self.hotkeys);
                     }
                     if ui.button("Delay Timer = ".to_owned() + &self.delay_timer.to_string()).clicked() {
                         match self.delay_timer {
