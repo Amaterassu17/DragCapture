@@ -10,7 +10,6 @@ dependencies = [
  "chrono",
  "dirs",
  "eframe",
- "egui 0.22.0",
  "egui_extras",
  "egui_glium",
  "epaint 0.22.0",

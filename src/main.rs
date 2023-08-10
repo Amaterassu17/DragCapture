@@ -1,8 +1,9 @@
 use std::borrow::Cow;
 use std::time::Duration;
 use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContext};
-use egui;
-use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions};
+use eframe::egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions};
+use eframe::egui;
+
 use imageproc::point::Point;
 use screenshots::{Screen, Compression};
 use screenshots;
@@ -16,7 +17,6 @@ use std::error::Error;
 use std::path::Path;
 use dirs;
 use chrono;
-use hotkey::{Listener,ListenerID,keys,modifiers};
 
 struct DragApp {
     button_text1: String,
@@ -29,8 +29,7 @@ struct DragApp {
     current_format: String,
     current_width: i32,
     current_height: i32,
-    hotkey_init : bool,
-    hotkeys: Vec<(i32, u32, u32, &'static str)>
+    save_errors: (bool, bool, bool)
 }
 
 impl DragApp {
@@ -47,8 +46,7 @@ impl DragApp {
             current_name: chrono::Local::now().format("%Y_%m_%d_%H_%M_%S").to_string(),
             current_path: dirs::picture_dir().unwrap().to_str().unwrap().to_string(),
             current_format: ".png".to_string(),
-            hotkey_init : false,
-            hotkeys: Vec::new(), 
+            save_errors: (false, false, false)
 
         }
     }
@@ -104,31 +102,6 @@ impl DragApp {
     //
     // }
 
-pub fn init_hotkey(&mut self,hotkey_listener: &mut Listener) /*-> Vec<(i32, u32,u32, &'static str)> */{
-        let hotkey_data = [
-            (keys::CAPS_LOCK, "Screenshot", modifiers::CONTROL | modifiers::SHIFT),
-            (keys::ENTER, "Drag and Drop", modifiers::CONTROL | modifiers::SHIFT),
-            (keys::SPACEBAR, "Edit", modifiers::CONTROL | modifiers::ALT),
-        ];
-    
-    
-        for &(key, message, modifiers_value) in &hotkey_data {
-            match hotkey_listener.register_hotkey(modifiers_value, key, move || {
-                println!("{}", message);
-            }) {
-                Ok(id) => {
-                    println!("Hotkey registered with ID: {:?}", id);
-                    self.hotkeys.push((id, modifiers_value, key, message));
-                }
-                Err(err) => {
-                    println!("Failed to register hotkey. Error: {}", err);
-                }
-            }
-        }
-    
-        println!("Registered Hotkey Info: {:?}",self.hotkeys/* hotkey_info*/);
-        //hotkey_info
-    }
     pub fn load_image_from_memory(image: DynamicImage) -> Result<ColorImage, image::ImageError> {
         let size = [image.width() as _, image.height() as _];
         let image_buffer = image.to_rgba8();
@@ -188,12 +161,7 @@ impl App for DragApp {
         let blue  = image::Rgba([0u8,   0u8,   255u8, 255u8]);
         let white = image::Rgba([255u8, 255u8, 255u8, 255u8]);
         let black = image::Rgba([0u8, 0u8, 0u8, 255u8]);
-       
-         if !self.hotkey_init{
-            let mut hotkey_listener = Listener::new();
-            self.init_hotkey(&mut hotkey_listener);
-            self.hotkey_init=true;
-            }
+
 
         let screens = Screen::all().unwrap();
 
@@ -230,7 +198,7 @@ impl App for DragApp {
                     }
                     if ui.button("Customize Hotkeys").clicked() {
                         //ROUTINE PER CAMBIARE GLI HOTKEYS. deve essere tipo una sotto finestra da cui togli focus e non puoi ricliccare su quella originale finchè non chiudi la sottofinestra. Al massimo ci confrontiamo con alessio
-                         println!("Hotkey Info: {:?}", self.hotkeys);
+                        //  println!("Hotkey Info: {:?}", self.hotkeys);
                     }
                     if ui.button("Delay Timer = ".to_owned() + &self.delay_timer.to_string()).clicked() {
                         match self.delay_timer {
@@ -272,67 +240,67 @@ impl App for DragApp {
             },
              "taken" => {
                 CentralPanel::default().show(ctx, |ui| {
-                ui.heading("Screenshot taken!");
-                ui.label("Screenshot taken and copied to clipboard");
-                if ui.button("Take another screenshot").clicked() {
-                    self.mode="initial".to_string();
-                }
-                if ui.button("Quit").clicked() {
-                    //Routine per chiudere il programma
-                    std::process::exit(0);
-                }
-                if ui.button("Arrow").clicked() {
-                    self.image= DragApp::draw_arrow(&self.image, 300.0, 300.0, 270.0, 250.0, green);
-                    
-                }
-                if ui.button("Circle").clicked() {
-                    self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(&mut self.image, (100, 100), 10, red));
-                }
-                if ui.button("Line").clicked() {
-                    self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&mut self.image, (100.0, 100.0), (110.0, 110.0),black ));
 
-                }if ui.button("Rectangle").clicked() {
-                    self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_rect(&mut self.image,  imageproc::rect::Rect::at(1, 1).of_size(200, 200), white));
+                egui::containers::scroll_area::ScrollArea::vertical().show(ui, |ui| {
 
-                }
-                if ui.button("Crop").clicked() {
-                    
-                    
-                }
-                // let image_buffer= ImageBuffer::from_raw(self.image.1, self.image.2, self.image.0.clone()).unwrap().save("target/screenshot.png").unwrap();
+                    ui.heading("Screenshot taken!");
+                    ui.label("Screenshot taken and copied to clipboard");
+                    if ui.button("Take another screenshot").clicked() {
+                        self.mode="initial".to_string();
+                    }
+                    if ui.button("Quit").clicked() {
+                        //Routine per chiudere il programma
+                        std::process::exit(0);
+                    }
+                    if ui.button("Arrow").clicked() {
+                        self.image= DragApp::draw_arrow(&self.image, 300.0, 300.0, 270.0, 250.0, green);
 
-                // let texture : TextureHandle = ui.ctx().load_texture("Screenshot", self.image.0.clone(), TextureOptions::default());
+                    }
+                    if ui.button("Circle").clicked() {
+                        self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(&mut self.image, (100, 100), 10, red));
+                    }
+                    if ui.button("Line").clicked() {
+                        self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&mut self.image, (100.0, 100.0), (110.0, 110.0),black ));
 
-                // ui.image(texture, texture.size_vec2());
+                    }if ui.button("Rectangle").clicked() {
+                        self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_rect(&mut self.image,  imageproc::rect::Rect::at(1, 1).of_size(200, 200), white));
+
+                    }
+                    if ui.button("Crop").clicked() {
 
 
+                    }
 
-                let color_image = DragApp::load_image_from_memory(self.image.clone()).unwrap();
-                self.current_width= color_image.size[0] as i32;
-                self.current_height= color_image.size[1] as i32;
-                let texture = ui.ctx().load_texture("ScreenShot", color_image, TextureOptions::default());
+                    let color_image = DragApp::load_image_from_memory(self.image.clone()).unwrap();
+                    self.current_width= color_image.size[0] as i32;
+                    self.current_height= color_image.size[1] as i32;
+                    let texture = ui.ctx().load_texture("ScreenShot", color_image, TextureOptions::default());
 
-                ui.image(&texture, texture.size_vec2());
+                    ui.image(&texture, texture.size_vec2());
 
-                if ui.button("Copy to clipboard").clicked() {
-                    //Routine per copiare l'immagine negli appunti
+                    if ui.button("Copy to clipboard").clicked() {
+                        //Routine per copiare l'immagine negli appunti
 
-                    let mut clipboard = Clipboard::new().unwrap();
-                    let r=self.image.resize(self.current_width as u32, self.current_height as u32, imageops::FilterType::Lanczos3).into_rgba8();
-                    let (w,h)=r.dimensions();
-                    let img = ImageData {
-                        width: usize::try_from(w).unwrap(),
-                        height: usize::try_from(h).unwrap(),
-                        bytes: Cow::from(r.as_bytes())
-                    };
+                        let mut clipboard = Clipboard::new().unwrap();
+                        let r=self.image.resize(self.current_width as u32, self.current_height as u32, imageops::FilterType::Lanczos3).into_rgba8();
+                        let (w,h)=r.dimensions();
+                        let img = ImageData {
+                            width: usize::try_from(w).unwrap(),
+                            height: usize::try_from(h).unwrap(),
+                            bytes: Cow::from(r.as_bytes())
+                        };
 
-                    clipboard.set_image(img).expect("Error in copying to clipboard");
+                        clipboard.set_image(img).expect("Error in copying to clipboard");
 
-                }
+                    }
 
-                if ui.button("Save").clicked() {
-                    self.mode= "saving".to_string();
-                }
+                    if ui.button("Save").clicked() {
+                        self.mode= "saving".to_string();
+                    }
+
+                });
+
+
 
 
             });
@@ -347,6 +315,15 @@ impl App for DragApp {
                         ui.horizontal(|ui| {
                             ui.label("Path: ");
                             ui.text_edit_singleline(&mut self.current_path);
+
+                            if self.save_errors.0 == true
+                            {
+                                ui.label("Please insert a path");
+                            }
+                            else if self.save_errors.1 ==true {
+                                ui.label("Please insert a path that already exists");
+                            }
+
                         });
                         ui.horizontal(|ui| {
                             ui.label("Name: ");
@@ -362,26 +339,57 @@ impl App for DragApp {
 
                     if ui.button("Save").clicked() {
 
+                        if self.save_errors.2 {
 
+                            ui.label("The chosen path is not a directory or it is already a file");
+
+                        }
 
                         match self.current_path.as_str() {
 
-                            "" => {ui.heading("Please insert a path");
+                            "" => {
+                                self.save_errors.0 = true;
                                 ()
                             },
 
                             _ => {
-
-
-                                let res = self.save_image_to_disk(self.current_format.clone().as_str(), self.current_path.clone().as_str(), self.current_name.clone().as_str());
-                                match res {
-                                    Ok(_) => {
-                                        self.mode="saved".to_string();
-                                    }
-                                    Err(_) => {
-                                        self.mode="error".to_string();
-                                    }
+                                self.save_errors = (false, false, false);
+                                let current_path = self.current_path.clone();
+                                let trimmed_path = current_path.trim();
+                                if trimmed_path.ends_with("/") == false {
+                                    self.current_path = trimmed_path.to_string() + "/";
                                 }
+
+                                let current_path = Path::new(trimmed_path);
+                                println!("{:?}", current_path);
+
+                                if current_path.exists() == false {
+                                    self.save_errors.1 = true;
+                                    ()
+                                }
+                                else {
+
+                                    if current_path.is_dir() == false || current_path.is_file() == true {
+                                        self.save_errors.2 = true;
+                                        ()
+                                    }
+                                    else {
+
+                                        let res = self.save_image_to_disk(self.current_format.clone().as_str(), self.current_path.clone().as_str(), self.current_name.clone().as_str());
+                                        match res {
+                                            Ok(_) => {
+                                                self.mode="saved".to_string();
+                                            }
+                                            Err(_) => {
+                                                self.mode="error".to_string();
+                                            }
+                                        }
+
+                                    }
+
+
+                                }
+
                             }
                         }
                         
@@ -483,7 +491,7 @@ fn main() -> Result<(), eframe::Error>{
 
     let native_options = eframe::NativeOptions {
         initial_window_size: Some(egui::Vec2::new((screen_sizes[0] as f32/ 1.5), (screen_sizes[1] as f32/ 1.5))),
-        always_on_top:true,
+        always_on_top:false,
         resizable: true,
         follow_system_theme: true,
         centered: true
