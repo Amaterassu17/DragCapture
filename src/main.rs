@@ -3,6 +3,7 @@ use std::time::Duration;
 use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContext};
 use egui;
 use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions};
+use imageproc::point::Point;
 use screenshots::{Screen, Compression};
 use screenshots;
 use std::{fs};
@@ -121,6 +122,33 @@ impl DragApp {
         }
         Ok(())
     }
+
+    pub fn draw_arrow(image: & DynamicImage, x0: f32, y0: f32, x1: f32, y1: f32, color: Rgba<u8>) -> DynamicImage {
+        // Draw the main arrow line
+        let mut img = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(image, (x0, y0), (x1, y1), color));
+      
+        // Calculate arrowhead points
+        let arrow_length = 15.0;
+        let arrow_angle: f64 = 20.0 ;
+        let dx = f64::from(x1 - x0);
+        let dy = f64::from(y1 - y0);
+        let angle = (dy).atan2(dx);
+        let arrowhead_size = (dx * dx + dy * dy).sqrt().min(arrow_length);
+      
+        // Calculate arrowhead vertices
+        let angle1 = angle + arrow_angle.to_radians();
+        let angle2 = angle - arrow_angle.to_radians();
+      
+        let x2 = (x1 as f64 - arrowhead_size * angle1.cos()) as f32;
+        let y2 = (y1 as f64 - arrowhead_size * angle1.sin()) as f32;
+        let x3 = (x1 as f64 - arrowhead_size * angle2.cos()) as f32;
+        let y3 = (y1 as f64 - arrowhead_size * angle2.sin()) as f32;
+      
+        let arrowhead_points: &[Point<i32>] = &[Point::new(x1 as i32, y1 as i32), Point::new(x2 as i32, y2 as i32), Point::new(x3 as i32, y3 as i32)];
+      
+        // Draw arrowhead polygon
+        return image::DynamicImage::ImageRgba8( imageproc::drawing::draw_polygon(&img, arrowhead_points, color));
+      }
 }
 impl App for DragApp {
 
@@ -220,7 +248,7 @@ impl App for DragApp {
                     std::process::exit(0);
                 }
                 if ui.button("Arrow").clicked() {
-                    
+                    self.image= DragApp::draw_arrow(&self.image, 300.0, 300.0, 270.0, 250.0, green);
                     
                 }
                 if ui.button("Circle").clicked() {
