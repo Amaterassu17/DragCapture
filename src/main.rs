@@ -114,9 +114,9 @@ impl DragApp {
         //Non sappiamo come gestire il fatto della sovrascrizione. Nel caso non è gestito
 
         match format {
-            "png" => self.image.clone().save(format!("{}/{}.png", path, filename))?,
-            "gif" => self.image.clone().save(format!("{}/{}.gif", path, filename))?,
-            "jpg" => self.image.clone().save(format!("{}/{}.jpg", path, filename))?,
+            ".png" => self.image.clone().save(format!("{}/{}.png", path, filename))?,
+            ".gif" => self.image.clone().save(format!("{}/{}.gif", path, filename))?,
+            ".jpg" => self.image.clone().save(format!("{}/{}.jpg", path, filename))?,
             _ => return Ok(()),
         }
         Ok(())
