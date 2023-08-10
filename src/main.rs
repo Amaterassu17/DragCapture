@@ -18,6 +18,7 @@ use std::error::Error;
 use std::path::Path;
 use dirs;
 use chrono;
+use eframe::egui::{Align, Key};
 
 struct DragApp {
     button_text1: String,
@@ -53,56 +54,40 @@ impl DragApp {
         }
     }
 
-    // pub fn initiate_drag (&mut self, _ctx: &Context, _frame: &mut Frame, _id: egui::Id, _response: &mut egui::Response, _response_pos: egui::Pos2, _modifiers: egui::Modifiers) {
-    //     //Qua ci sta la routine che toglie il focus dalla finestra e fa lo screenshot alla premuta di un pulsante o anche solo premendo solo questo pulsante. Va legato alla libreria screenshots
-    //     let input = InputState::default();
-    //
-    //     println!("Drag initiated");
-    //     println!("Mouse pos: {:?}", input);
-    //
-    // }
+    pub fn take_screenshot (&mut self) {
 
+        let screens = Screen::all().unwrap();
+        let mut selected_screen = screens[self.selected_monitor as usize].clone();
+        let x= 0;
+        let y = 0;
+        let width=selected_screen.display_info.width;
+        let height=selected_screen.display_info.height;
+        std::thread::sleep(Duration::from_secs(self.delay_timer as u64));
 
-    // pub fn initiate_drag_simple (&mut self, _ctx: &Context, _frame: &mut Frame) {
-    //     //Qua ci sta la routine che toglie il focus dalla finestra e fa lo screenshot alla premuta di un pulsante o anche solo premendo solo questo pulsante. Va legato alla libreria screenshots
-    //     _frame.set_minimized(true);
-    //
-    //     let mut inserted_commands = Vec::new();
-    //
-    //     loop {
-    //
-    //         if(_ctx.input((|i| i.key_pressed(Key::)))) {
-    //             println!("Mouse down");
-    //             break;
-    //         }
-    //
-    //         if(_ctx.input(())) {
-    //             println!("Mouse up");
-    //             break;
-    //         }
-    //
-    //         if(_ctx.input(())) {
-    //             println!("Mouse pressed");
-    //             break;
-    //         }
-    //
-    //     }
-    //
-    //     println!("End of loop");
-    //
-    //     //std::thread::sleep(Duration::from_secs(self.delay_timer as u64));
-    //
-    //     let input = _ctx.input(|i| i.clone());
-    //
-    //     println!("Drag initiated");
-    //     println!("Mouse pos: {:?}", input);
-    //
-    //     //I want to start an input state that is a drag
-    //     //First off, we see if any input
-    //
-    //
-    //
-    // }
+        let image = selected_screen.capture_area(x, y, width, height).unwrap();
+
+        let buffer = image.to_png(None).unwrap();
+        let img=  image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
+        let img = img.resize(width/2, height/2, imageops::FilterType::Lanczos3);
+
+        self.image = img.clone();
+        self.mode="taken".to_string();
+
+    }
+
+    pub fn copy_to_clipboard (&mut self) {
+        let mut clipboard = Clipboard::new().unwrap();
+        let r=self.image.resize(self.current_width as u32, self.current_height as u32, imageops::FilterType::Lanczos3).into_rgba8();
+        let (w,h)=r.dimensions();
+        let img = ImageData {
+            width: usize::try_from(w).unwrap(),
+            height: usize::try_from(h).unwrap(),
+            bytes: Cow::from(r.as_bytes())
+        };
+
+        clipboard.set_image(img).expect("Error in copying to clipboard");
+
+    }
 
     pub fn load_image_from_memory(image: DynamicImage) -> Result<ColorImage, image::ImageError> {
         let size = [image.width() as _, image.height() as _];
@@ -115,8 +100,7 @@ impl DragApp {
     }
     pub fn save_image_to_disk(&mut self, format: &str, path: &str, filename: &str) -> Result<(), Box<dyn Error>> {
 
-        //Non sappiamo come gestire il fatto della sovrascrizione. Nel caso non è gestito
-
+        //NOT MANAGED: OVERRIDE
         match format {
             ".png" => self.image.clone().save(format!("{}/{}.png", path, filename))?,
             ".gif" => self.image.clone().save(format!("{}/{}.gif", path, filename))?,
@@ -165,43 +149,20 @@ impl App for DragApp {
         let white = image::Rgba([255u8, 255u8, 255u8, 255u8]);
         let black = image::Rgba([0u8, 0u8, 0u8, 255u8]);
 
-
         let screens = Screen::all().unwrap();
-        println!("{}", self.input.pointer.has_pointer());
+
         match self.mode.as_str() {
             "initial" => {
 
                 CentralPanel::default().show(ctx, |ui| {
-                    ui.heading("Hello World!");
-                    ui.label("This is a test for egui and eframe");
+                    ui.heading("Cross-platform screenshot utility");
+                    ui.label("This is a cross-platform utility designed to help people take screenshots. The application is all coded and compiled in Rust");
                     //Button
                     if ui.button("Take a screenshot!").clicked() {
-                        //Qua ci sta tipo la routine che toglie il focus dalla finestra e fa lo screenshot alla premuta di un pulsante o anche solo premendo solo questo pulsante. Va legato alla libreria screenshots
-                        //let screens = Screen::all().unwrap();
-
-
-
-                        let mut selected_screen = screens[self.selected_monitor as usize].clone();
-                        let x= 0;
-                        let y = 0;
-                        let width=selected_screen.display_info.width;
-                        let height=selected_screen.display_info.height;
-                        std::thread::sleep(Duration::from_secs(self.delay_timer as u64));
-
-                        let image = selected_screen.capture_area(x, y, width, height).unwrap();
-
-
-
-                        let buffer = image.to_png(None).unwrap();
-                        let img=  image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
-                        let img = img.resize(width/2, height/2, imageops::FilterType::Lanczos3);
-
-                        self.image = img.clone();
-                        self.mode="taken".to_string();
+                        self.take_screenshot();
                     }
                     if ui.button("Customize Hotkeys").clicked() {
                         //ROUTINE PER CAMBIARE GLI HOTKEYS. deve essere tipo una sotto finestra da cui togli focus e non puoi ricliccare su quella originale finchè non chiudi la sottofinestra. Al massimo ci confrontiamo con alessio
-                        //  println!("Hotkey Info: {:?}", self.hotkeys);
                     }
                     if ui.button("Delay Timer = ".to_owned() + &self.delay_timer.to_string()).clicked() {
                         match self.delay_timer {
@@ -215,7 +176,7 @@ impl App for DragApp {
 
                     //Container Combo box for dropdown menu
 
-                    ui.vertical_centered(|ui| {
+                    ui.vertical(|ui| {
                         ui.label("Select monitor: ");
                         ui.separator();
                         ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
@@ -232,10 +193,16 @@ impl App for DragApp {
                         });
                     });
 
-                    if ui.button("Quit").clicked() {
-                        //Routine per chiudere il programma
-                        std::process::exit(0);
-                    }
+                    ui.horizontal(|ui| {
+                        ui.with_layout(egui::Layout::right_to_left(Align::Max), |ui| {
+                            if ui.button("Quit").clicked() {
+                                //Routine per chiudere il programma
+                                std::process::exit(0);
+                            }
+                        });
+                    });
+
+
 
                 });
 
@@ -247,41 +214,27 @@ impl App for DragApp {
                 egui::containers::scroll_area::ScrollArea::vertical().show(ui, |ui| {
 
                     ui.heading("Screenshot taken!");
-                    ui.label("Screenshot taken and copied to clipboard");
-                    if ui.button("Take another screenshot").clicked() {
-                        self.mode="initial".to_string();
-                    }
-                    if ui.button("Quit").clicked() {
-                        //Routine per chiudere il programma
-                        std::process::exit(0);
-                    }
-                    if ui.button("Arrow").clicked() {
-                        self.image= DragApp::draw_arrow(&self.image, 300.0, 300.0, 270.0, 250.0, green);
 
-                    }
-                    if ui.button("Circle").clicked() {
-                        self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(&mut self.image, (100, 100), 10, red));
-                    }
-                    if ui.button("Line").clicked() {
-                        self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&mut self.image, (100.0, 100.0), (110.0, 110.0),black ));
+                    ui.horizontal(|ui| {
+                        if ui.button("Arrow").clicked() {
+                            self.image= DragApp::draw_arrow(&self.image, 300.0, 300.0, 270.0, 250.0, green);
 
-                    }if ui.button("Rectangle").clicked() {
-                        self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_rect(&mut self.image,  imageproc::rect::Rect::at(1, 1).of_size(200, 200), white));
+                        }
+                        if ui.button("Circle").clicked() {
+                            self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(&mut self.image, (100, 100), 10, red));
+                        }
+                        if ui.button("Line").clicked() {
+                            self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&mut self.image, (100.0, 100.0), (110.0, 110.0),black ));
+                        }
+                        if ui.button("Rectangle").clicked() {
+                            self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_rect(&mut self.image,  imageproc::rect::Rect::at(1, 1).of_size(200, 200), white));
+                        }
+                        if ui.button("Crop").clicked() {
+                            self.image= image::DynamicImage::ImageRgba8(image::imageops::crop(&mut self.image.clone(), 0,0, 600, 20).to_image());
+                        }
+                    });
 
-                }
-                if ui.button("Crop").clicked() {
-                    
-                    self.image= image::DynamicImage::ImageRgba8(image::imageops::crop(&mut self.image.clone(), 0,0, 600, 20).to_image());
-                    
-                }
-                // let image_buffer= ImageBuffer::from_raw(self.image.1, self.image.2, self.image.0.clone()).unwrap().save("target/screenshot.png").unwrap();
-
-                // let texture : TextureHandle = ui.ctx().load_texture("Screenshot", self.image.0.clone(), TextureOptions::default());
-
-                // ui.image(texture, texture.size_vec2());
-
-
-
+                    //Image rendering in a single frame
                     let color_image = DragApp::load_image_from_memory(self.image.clone()).unwrap();
                     self.current_width= color_image.size[0] as i32;
                     self.current_height= color_image.size[1] as i32;
@@ -289,30 +242,26 @@ impl App for DragApp {
 
                     ui.image(&texture, texture.size_vec2());
 
-                    if ui.button("Copy to clipboard").clicked() {
-                        //Routine per copiare l'immagine negli appunti
+                    ui.horizontal(|ui| {
+                        if ui.button("Copy to clipboard").clicked() {
+                            self.copy_to_clipboard();
+                        }
 
-                        let mut clipboard = Clipboard::new().unwrap();
-                        let r=self.image.resize(self.current_width as u32, self.current_height as u32, imageops::FilterType::Lanczos3).into_rgba8();
-                        let (w,h)=r.dimensions();
-                        let img = ImageData {
-                            width: usize::try_from(w).unwrap(),
-                            height: usize::try_from(h).unwrap(),
-                            bytes: Cow::from(r.as_bytes())
-                        };
+                        if ui.button("Take another screenshot").clicked() {
+                            self.mode="initial".to_string();
+                        }
 
-                        clipboard.set_image(img).expect("Error in copying to clipboard");
+                        if ui.button("Save").clicked() {
+                            self.mode= "saving".to_string();
+                        }
 
-                    }
+                        if ui.button("Quit").clicked() {
+                            std::process::exit(0);
+                        }
+                    });
 
-                    if ui.button("Save").clicked() {
-                        self.mode= "saving".to_string();
-                    }
 
                 });
-
-
-
 
             });
             },
@@ -351,9 +300,7 @@ impl App for DragApp {
                     if ui.button("Save").clicked() {
 
                         if self.save_errors.2 {
-
                             ui.label("The chosen path is not a directory or it is already a file");
-
                         }
 
                         match self.current_path.as_str() {
@@ -372,7 +319,6 @@ impl App for DragApp {
                                 }
 
                                 let current_path = Path::new(trimmed_path);
-                                println!("{:?}", current_path);
 
                                 if current_path.exists() == false {
                                     self.save_errors.1 = true;
@@ -443,53 +389,9 @@ impl App for DragApp {
 
     }
 
-
-
-    // DA QUI IN POI SONO TUTTE OPZIONALI. NON DOVREBBE SERVIRE IMPLEMENTARLE A MENO DI COSE SPECIFICHE TIPO HOTKEY BOH LA SPARO A CASO
-    // fn save(&mut self, _storage: &mut dyn Storage) {
-    //     todo!()
-    // }
-    //
-    // fn on_close_event(&mut self) -> bool {
-    //     todo!()
-    // }
-    //
-    // fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-    //     todo!()
-    // }
-    //
-    // fn auto_save_interval(&self) -> Duration {
-    //     todo!()
-    // }
-    //
-    // fn max_size_points(&self) -> Vec2 {
-    //     todo!()
-    // }
-    //
-    // fn clear_color(&self, _visuals: &Visuals) -> [f32; 4] {
-    //     todo!()
-    // }
-    //
-    // fn persist_native_window(&self) -> bool {
-    //     todo!()
-    // }
-    //
-    // fn persist_egui_memory(&self) -> bool {
-    //     todo!()
-    // }
-    //
-    // fn warm_up_enabled(&self) -> bool {
-    //     todo!()
-    // }
-    //
-    // fn post_rendering(&mut self, _window_size_px: [u32; 2], _frame: &Frame) {
-    //     todo!()
-    // }
 }
 
 fn main() -> Result<(), eframe::Error>{
-    //Test for egui and eframe
-
     let mut screen_sizes: [u32; 2] = [1920, 1080];
 
     for screen in Screen::all().unwrap().iter(){
@@ -501,7 +403,6 @@ fn main() -> Result<(), eframe::Error>{
     }
 
     let native_options = eframe::NativeOptions {
-        initial_window_size: Some(egui::Vec2::new((screen_sizes[0] as f32/ 1.5), (screen_sizes[1] as f32/ 1.5))),
         always_on_top:false,
         resizable: true,
         follow_system_theme: true,
