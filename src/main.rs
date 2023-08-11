@@ -18,9 +18,13 @@ use std::error::Error;
 use std::path::Path;
 use dirs;
 use chrono;
-use eframe::egui::{Align, Key};
+use eframe::egui::{Align, Key, Layout};
 enum DrawingType{
     None, Arrow, Circle, Rectangle, Line
+}
+
+enum Hotkeys {
+    TakeScreenshot
 }
 
 struct DragApp {
@@ -39,7 +43,9 @@ struct DragApp {
     drawing: bool,
     drawing_type: DrawingType,
     initial_pos: egui::Pos2,
-
+    hotkeys_strings: Vec<String>,
+    hotkey_ui_status: bool,
+    changing_hotkey: Vec<bool>
 
 
 }
@@ -63,6 +69,9 @@ impl DragApp {
             drawing: false,
             drawing_type: DrawingType::None,
             initial_pos: egui::pos2(-1.0, -1.0),
+            hotkeys_strings : vec!["S + W".to_string(),"Q + Esc".to_string()],
+            hotkey_ui_status: false,
+            changing_hotkey: vec![false; 5],
         }
     }
 
@@ -198,6 +207,7 @@ impl App for DragApp {
                     }
                     if ui.button("Customize Hotkeys").clicked() {
                         //ROUTINE PER CAMBIARE GLI HOTKEYS. deve essere tipo una sotto finestra da cui togli focus e non puoi ricliccare su quella originale finchè non chiudi la sottofinestra. Al massimo ci confrontiamo con alessio
+                        self.mode = "hotkey".to_string();
                     }
                     if ui.button("Delay Timer = ".to_owned() + &self.delay_timer.to_string()).clicked() {
                         match self.delay_timer {
@@ -368,7 +378,7 @@ impl App for DragApp {
             },
             "saving"=> {
 
-                CentralPanel::default().show(ctx, |ui| {
+                 CentralPanel::default().show(ctx, |ui| {
 
                     ui.heading("Choose a path, a name and a format for your screenshot");
 
@@ -455,6 +465,76 @@ impl App for DragApp {
 
                     }
 
+                });
+
+            },
+            "hotkey" => {
+
+                let hotkeys : Vec<String> = vec!["Take a Screenshot".to_string(), "Quit".to_string()];
+
+                CentralPanel::default().show(ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+
+                        ui.heading("Hotkey Selection Screen");
+                        ui.label("Select the hotkey you want to bind.\
+                        You will have 3 seconds to choose the buttons");
+
+                        for (i, hotkey) in hotkeys.iter().enumerate() {
+                            ui.horizontal_wrapped(|ui| {
+
+                                ui.label(hotkey);
+
+                                // ui.add_enabled(self.hotkey_ui_status, );
+                                ui.add_enabled_ui(self.hotkey_ui_status == false, |ui|{
+                                    let button_text : String = if self.changing_hotkey[i] == true {"  ---  ".to_string()} else {self.hotkeys_strings[i].clone().to_string()};
+                                    if ui.button(button_text).on_hover_text("Change hotkey").clicked(){
+                                        self.hotkey_ui_status= true;
+                                        self.changing_hotkey[i] = true;
+                                    };
+                                });
+
+
+                            });
+                        }
+
+                        ctx.input(|i| if i.key_pressed(Key::Enter) {
+
+                            let mut keys_pressed = i.keys_down.clone();
+                            keys_pressed.remove(&Key::Enter);
+                            println!("{:?}", keys_pressed );
+                            if keys_pressed.len() != 0 {
+
+                                let mut buf: String = "".to_string();
+                                for (i,str_key) in keys_pressed.iter().enumerate() {
+                                    if i==0 {buf = str_key.symbol_or_name().to_string() }
+                                    else {
+                                        buf = buf.to_string() + " + " + str_key.symbol_or_name();
+                                    }
+                                }
+
+                                self.hotkeys_strings[self.changing_hotkey.iter().position(|&x| x == true).unwrap()] = buf;
+                            }
+                            self.hotkey_ui_status= false;
+                            for changing_hotkey in self.changing_hotkey.iter_mut() {
+                                *changing_hotkey = false;
+                            }
+
+                        }
+                        );
+
+                        ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
+
+                            if ui.button("Back").clicked() {
+                                self.mode="initial".to_string();
+                            }
+                            if ui.button("Quit").clicked() {
+                                //Routine per chiudere il programma
+                                std::process::exit(0);
+                            }
+
+                        });
+
+                    })
                 });
 
             },
