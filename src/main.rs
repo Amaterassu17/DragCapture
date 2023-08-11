@@ -546,8 +546,8 @@ fn main() -> Result<(), eframe::Error>{
         always_on_top:false,
         resizable: true,
         follow_system_theme: true,
-        centered: true
-        ,
+        centered: true,
+        vsync: false,
         ..Default::default()
     };
     run_native("DragCapture", native_options, Box::new(|cc| Box::new(DragApp::new(cc))))
