@@ -402,7 +402,11 @@ impl App for DragApp {
                 });
 
             },
-            "hotkey" => {},
+            "hotkey" => {
+
+                CentralPanel::default().show(ctx, |ui| )
+
+            },
             "saved" => {
                 CentralPanel::default().show(ctx, |ui| {
                     ui.heading("Screenshot saved!");
