@@ -26,13 +26,18 @@ struct DragApp {
     selected_monitor: u32,
     mode: String,
     image: DynamicImage,
+    image_back: DynamicImage,
     current_name: String,
     current_path: String,
     current_format: String,
     current_width: i32,
     current_height: i32,
     save_errors: (bool, bool, bool),
-    input : InputState,
+    arrow: bool,
+    initial_pos: egui::Pos2,
+
+
+
 }
 
 impl DragApp {
@@ -44,13 +49,15 @@ impl DragApp {
             selected_monitor: 0,
             mode: "initial".to_string(),
             image: DynamicImage::default(),
+            image_back: DynamicImage::default(),
             current_width: 0,
             current_height: 0,
             current_name: chrono::Local::now().format("%Y_%m_%d_%H_%M_%S").to_string(),
             current_path: dirs::picture_dir().unwrap().to_str().unwrap().to_string(),
             current_format: ".png".to_string(),
             save_errors: (false, false, false),
-            input: InputState::default(),
+            arrow: false,
+            initial_pos: egui::pos2(-1.0, -1.0),
         }
     }
 
@@ -71,6 +78,7 @@ impl DragApp {
         let img = img.resize(width/2, height/2, imageops::FilterType::Lanczos3);
 
         self.image = img.clone();
+        self.image_back = self.image.clone();
         self.mode="taken".to_string();
 
     }
@@ -112,8 +120,11 @@ impl DragApp {
 
     pub fn draw_arrow(image: & DynamicImage, x0: f32, y0: f32, x1: f32, y1: f32, color: Rgba<u8>) -> DynamicImage {
         // Draw the main arrow line
+        if((x0-x1).abs() <1.0 || (y0-y1).abs() < 1.0){
+            return image.clone();
+        }
         let mut img = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(image, (x0, y0), (x1, y1), color));
-      
+
         // Calculate arrowhead points
         let arrow_length = 15.0;
         let arrow_angle: f64 = 20.0 ;
@@ -121,24 +132,26 @@ impl DragApp {
         let dy = f64::from(y1 - y0);
         let angle = (dy).atan2(dx);
         let arrowhead_size = (dx * dx + dy * dy).sqrt().min(arrow_length);
-      
+
         // Calculate arrowhead vertices
         let angle1 = angle + arrow_angle.to_radians();
         let angle2 = angle - arrow_angle.to_radians();
-      
+
         let x2 = (x1 as f64 - arrowhead_size * angle1.cos()) as f32;
         let y2 = (y1 as f64 - arrowhead_size * angle1.sin()) as f32;
         let x3 = (x1 as f64 - arrowhead_size * angle2.cos()) as f32;
         let y3 = (y1 as f64 - arrowhead_size * angle2.sin()) as f32;
-      
+
         let arrowhead_points: &[Point<i32>] = &[Point::new(x1 as i32, y1 as i32), Point::new(x2 as i32, y2 as i32), Point::new(x3 as i32, y3 as i32)];
-      
+
         // Draw arrowhead polygon
         return image::DynamicImage::ImageRgba8( imageproc::drawing::draw_polygon(&img, arrowhead_points, color));
-      }
+    }
 }
 
 impl App for DragApp {
+
+
 
     //UPDATE è FONDAMENTALE. CI DEVE ESSERE SEMPRE
     fn update(&mut self, ctx: &Context, frame: &mut Frame) {
@@ -217,8 +230,7 @@ impl App for DragApp {
 
                     ui.horizontal(|ui| {
                         if ui.button("Arrow").clicked() {
-                            self.image= DragApp::draw_arrow(&self.image, 300.0, 300.0, 270.0, 250.0, green);
-
+                            self.arrow=true;
                         }
                         if ui.button("Circle").clicked() {
                             self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(&mut self.image, (100, 100), 10, red));
@@ -240,7 +252,40 @@ impl App for DragApp {
                     self.current_height= color_image.size[1] as i32;
                     let texture = ui.ctx().load_texture("ScreenShot", color_image, TextureOptions::default());
 
-                    ui.image(&texture, texture.size_vec2());
+                    let image_w = ui.image(&texture, texture.size_vec2());
+
+                    ctx.input(|i|{
+                        if self.initial_pos.x== -1.0 && self.initial_pos.y== -1.0 && self.arrow==true && i.pointer.button_clicked(egui::PointerButton::Primary){
+                            match  i.pointer.interact_pos(){
+                                None => (),
+                                Some(m) => self.initial_pos= egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y),
+                            }
+                        }
+                        else if self.initial_pos.x!= -1.0 && self.initial_pos.y!= -1.0 && self.arrow==true && i.pointer.button_clicked(egui::PointerButton::Primary){
+                            match  i.pointer.interact_pos(){
+                                None => (),
+                                Some(mut m) => {
+                                    m = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
+                                    self.image= DragApp::draw_arrow(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, green);
+                                    self.image_back= self.image.clone();
+                                    self.arrow=false;
+                                    self.initial_pos=egui::pos2(-1.0, -1.0);
+                                },
+                            }
+                        }
+                        else if self.initial_pos.x!= -1.0 && self.initial_pos.y!= -1.0 && self.arrow==true{
+                            match  i.pointer.interact_pos(){
+                                None => (),
+                                Some(mut m) =>{
+                                    m = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
+                                    self.image= DragApp::draw_arrow(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, green)},
+                            }
+                        }
+
+                    });
+
+
+
 
                     ui.horizontal(|ui| {
                         if ui.button("Copy to clipboard").clicked() {
@@ -406,8 +451,8 @@ fn main() -> Result<(), eframe::Error>{
         always_on_top:false,
         resizable: true,
         follow_system_theme: true,
-        centered: true
-        ,
+        centered: true,
+
         ..Default::default()
     };
     run_native("DragCapture", native_options, Box::new(|cc| Box::new(DragApp::new(cc))))
