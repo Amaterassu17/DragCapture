@@ -5,7 +5,7 @@ use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContex
 use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions, InputState};
 use eframe::egui;
 use egui::widgets::color_picker;
-use egui_glium::egui_winit::egui::Color32;
+use egui_glium::egui_winit::egui::{Color32, Rounding};
 use imageproc::point::Point;
 use screenshots::{Screen, Compression};
 use screenshots;
@@ -75,9 +75,24 @@ struct DragApp {
     color: epaint::Color32,
 }
 
+fn create_visuals() -> egui::style::Visuals {
+    let mut visuals = egui::style::Visuals::default();
+
+    visuals.widgets.noninteractive.bg_fill = egui::Color32::from_black_alpha(220);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
+    visuals.widgets.inactive.rounding = epaint::Rounding{ nw: 3.0, ne: 3.0, sw: 3.0, se: 3.0 };
+
+   
+    visuals
+}
+
 impl DragApp {
     pub fn new(cc: &CreationContext<'_>) -> Self {
         //Qua dobbiamo mettere il setup di eventuali font eccetera
+        
+        let visuals = create_visuals();
+        cc.egui_ctx.set_visuals(visuals);
+        
         Self {
             button_text1: "Take a screenshot!".to_owned(),
             delay_timer: 0,
@@ -286,7 +301,7 @@ impl App for DragApp {
                     ui.heading("Screenshot taken!");
                 
                     egui::widgets::color_picker::color_picker_color32(ui, &mut self.color, eframe::egui::color_picker::Alpha::Opaque);
-                        
+                    ui.add_space(10.0);
                     
 
                     ui.horizontal(|ui| {
@@ -346,7 +361,7 @@ impl App for DragApp {
                     self.current_width= color_image.size[0] as i32;
                     self.current_height= color_image.size[1] as i32;
                     let texture = ui.ctx().load_texture("ScreenShot", color_image, TextureOptions::default());
-
+                
                     let image_w = ui.image(&texture, texture.size_vec2());
 
                     ctx.input(|i|{
@@ -715,6 +730,7 @@ impl App for DragApp {
 
 }
 
+
 fn main() -> Result<(), eframe::Error>{
     let mut screen_sizes: [u32; 2] = [1920, 1080];
 
@@ -725,7 +741,7 @@ fn main() -> Result<(), eframe::Error>{
 
         }
     }
-
+    
     let native_options = eframe::NativeOptions {
         always_on_top:false,
         resizable: true,
