@@ -3,7 +3,7 @@ use std::time::Duration;
 use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContext};
 
 use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions, InputState};
-use eframe::egui;
+use eframe::egui::{self, Modifiers};
 use egui::widgets::color_picker;
 use egui_glium::egui_winit::egui::{Color32, Rounding};
 use imageproc::point::Point;
@@ -20,6 +20,7 @@ use std::path::Path;
 use dirs;
 use chrono;
 use eframe::egui::{Align, Key, Layout};
+use rusttype::*;
 enum DrawingType{
     None, Arrow, Circle, Rectangle, Line
 }
@@ -73,6 +74,9 @@ struct DragApp {
     crop_point:CropRect,
     current_crop_point: Corner,
     color: epaint::Color32,
+    texting:bool,
+    text_string: String,
+    all_keys:Vec<Key>,
 }
 
 fn create_visuals() -> egui::style::Visuals {
@@ -116,6 +120,9 @@ impl DragApp {
             hotkeys_strings : vec!["S + W".to_string(),"Q + Esc".to_string()],
             hotkey_ui_status: false,
             changing_hotkey: vec![false; 5],
+            texting:false,
+            text_string: "".to_string(),
+            all_keys: vec![Key::A, Key::B, Key::C,Key::D,Key::E,Key::F,Key::G,Key::H,Key::I,Key::L,Key::M,Key::N,Key::O,Key::P,Key::Q,Key::R,Key::S,Key::T,Key::U,Key::V,Key::Z,Key::J,Key::K,Key::W,Key::X,Key::Y, Key::Num0 , Key::Num1 , Key::Num2 , Key::Num3, Key::Num4, Key::Num5, Key::Num6 , Key::Num7 , Key::Num8, Key::Num9, Key::Minus, Key::PlusEquals, Key::Space, Key::Backspace, Key::Enter],
         }
     }
 
@@ -231,7 +238,7 @@ impl App for DragApp {
     //UPDATE è FONDAMENTALE. CI DEVE ESSERE SEMPRE
     fn update(&mut self, ctx: &Context, frame: &mut Frame) {
 
-        
+        let arial:Font<'static>=Font::try_from_bytes(include_bytes!("../fonts/arial.ttf")).unwrap();
 
         let screens = Screen::all().unwrap();
 
@@ -313,6 +320,8 @@ impl App for DragApp {
                             self.initial_pos=egui::pos2(-1.0, -1.0);
                             self.crop_point= CropRect::default();
                             self.current_crop_point= Corner::None;
+                            self.texting=false;
+                            self.text_string="".to_string();
                         }
                         if ui.button("Circle").clicked() {
                             self.drawing=true;
@@ -322,6 +331,8 @@ impl App for DragApp {
                             self.initial_pos=egui::pos2(-1.0, -1.0);
                             self.crop_point= CropRect::default();
                             self.current_crop_point= Corner::None;
+                            self.texting=false;
+                            self.text_string="".to_string();
                         }
                         if ui.button("Line").clicked() {
                             self.drawing=true;
@@ -331,6 +342,8 @@ impl App for DragApp {
                             self.initial_pos=egui::pos2(-1.0, -1.0);
                             self.crop_point= CropRect::default();
                             self.current_crop_point= Corner::None;
+                            self.texting=false;
+                            self.text_string="".to_string();
                         }
                         if ui.button("Rectangle").clicked() {
                             self.drawing=true;
@@ -340,9 +353,24 @@ impl App for DragApp {
                             self.initial_pos=egui::pos2(-1.0, -1.0);
                             self.crop_point= CropRect::default();
                             self.current_crop_point= Corner::None;
-                                                    }
+                            self.texting=false;
+                            self.text_string="".to_string();
+                        }
+                        if ui.button("Text").clicked(){
+                            self.drawing=false;
+                            self.crop=false;
+                            self.drawing_type=DrawingType::None;
+                            self.image= self.image_back.clone();
+                            self.initial_pos=egui::pos2(-1.0, -1.0);
+                            self.crop_point= CropRect::default();
+                            self.current_crop_point= Corner::None;
+
+                            self.texting=true;
+                            self.text_string="".to_string();
+                        }
                         if ui.button("Crop").clicked() {
                             self.drawing=false;
+                            self.drawing_type=DrawingType::None;
                             self.crop=true;
                             self.initial_pos=egui::pos2(-1.0, -1.0);
                             self.image= self.image_back.clone();
@@ -352,7 +380,9 @@ impl App for DragApp {
                             self.image= DragApp::draw_rect(&self.image, 0.5,0.5, self.image.width() as f32 -0.5, self.image.height() as f32 -0.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
                             self.image= DragApp::draw_rect(&self.image, 1.0,1.0, self.image.width() as f32 -1.0, self.image.height() as f32 -1.0, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
                             self.image= DragApp::draw_rect(&self.image, 1.5,1.5, self.image.width() as f32 -1.5, self.image.height() as f32 -1.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
-
+                            
+                            self.texting=false;
+                            self.text_string="".to_string();
                         }
                     });
 
@@ -364,7 +394,7 @@ impl App for DragApp {
                 
                     let image_w = ui.image(&texture, texture.size_vec2());
 
-                    ctx.input(|i|{
+                    ctx.input_mut(|i: &mut InputState|{
                         if self.drawing==true {
                             if self.initial_pos.x== -1.0 && self.initial_pos.y== -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary){
                                 match  i.pointer.interact_pos(){
@@ -505,6 +535,44 @@ impl App for DragApp {
                                 }
                                 
                             }
+                        }
+                        else if self.texting==true{
+                            if self.initial_pos.x== -1.0 && self.initial_pos.y== -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary){
+                                match  i.pointer.interact_pos(){
+                                    None => (),
+                                    Some(m) =>{
+                                        if m.x - image_w.rect.left_top().x >= 0.0 && m.x - image_w.rect.left_top().x <= image_w.rect.width() && m.y - image_w.rect.left_top().y >= 0.0 && m.y - image_w.rect.left_top().y <= image_w.rect.height(){
+                                            self.initial_pos= egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
+                                        }
+                                    }
+                                }
+                            }
+                            else if self.initial_pos.x!= -1.0 && self.initial_pos.y!= -1.0 {
+                                    
+                                    for key in &self.all_keys{
+                                        if i.consume_key(Modifiers::NONE, *key){
+                                            if *key==Key::Backspace {
+                                                self.text_string.pop();
+                                            }
+                                            else if *key==Key::Space{
+                                                self.text_string.push_str(" ");
+                                            }
+                                            else if *key==Key::Enter{
+                                                self.image=image::DynamicImage::ImageRgba8(imageproc::drawing::draw_text(&self.image_back,image::Rgba(self.color.to_array()) , self.initial_pos.x as i32, self.initial_pos.y as i32,rusttype::Scale { x: 30.0, y: 30.0 }, &arial, &self.text_string));
+                                                self.image_back= self.image.clone();
+                                                self.texting=false;
+                                                self.text_string="".to_string();
+                                                self.initial_pos=egui::pos2(-1.0, -1.0);
+                                            }
+                                            else{
+                                                self.text_string.push(key.symbol_or_name().chars().next().unwrap());
+                                            }
+                                            self.image=image::DynamicImage::ImageRgba8(imageproc::drawing::draw_text(&self.image_back,image::Rgba(self.color.to_array()) , self.initial_pos.x as i32, self.initial_pos.y as i32,rusttype::Scale { x: 30.0, y: 30.0 }, &arial, &self.text_string));
+                                        }
+                                    }
+
+                            }
+
                         }
                 
                     });
