@@ -4,7 +4,8 @@ use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContex
 
 use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions, InputState};
 use eframe::egui;
-
+use egui::widgets::color_picker;
+use egui_glium::egui_winit::egui::Color32;
 use imageproc::point::Point;
 use screenshots::{Screen, Compression};
 use screenshots;
@@ -22,6 +23,28 @@ use eframe::egui::{Align, Key};
 enum DrawingType{
     None, Arrow, Circle, Rectangle, Line
 }
+enum Corner{
+    None, TopLeft, TopRight, BottomLeft, BottomRight
+}
+
+struct CropRect{
+    x0:f32,
+    y0:f32,
+    x1:f32,
+    y1:f32,
+}
+impl CropRect{
+    fn new(x0: f32,y0: f32,x1: f32,y1: f32) ->Self{
+        return CropRect { x0: x0, y0: y0, x1: x1, y1: y1 };
+    }
+
+}
+impl Default for CropRect{
+    fn default() -> Self {
+        return CropRect { x0: -1.0, y0: -1.0, x1: -1.0, y1: -1.0 };
+    }
+}
+
 
 struct DragApp {
     button_text1: String,
@@ -39,9 +62,10 @@ struct DragApp {
     drawing: bool,
     drawing_type: DrawingType,
     initial_pos: egui::Pos2,
-
-
-
+    crop: bool,
+    crop_point:CropRect,
+    current_crop_point: Corner,
+    color: epaint::Color32,
 }
 
 impl DragApp {
@@ -63,6 +87,10 @@ impl DragApp {
             drawing: false,
             drawing_type: DrawingType::None,
             initial_pos: egui::pos2(-1.0, -1.0),
+            crop:false,
+            crop_point: CropRect::default(),
+            current_crop_point: Corner::None,
+            color: epaint::Color32::default(),
         }
     }
 
@@ -125,7 +153,7 @@ impl DragApp {
 
     pub fn draw_arrow(image: & DynamicImage, x0: f32, y0: f32, x1: f32, y1: f32, color: Rgba<u8>) -> DynamicImage {
         // Draw the main arrow line
-        if((x0-x1).abs() <1.0 || (y0-y1).abs() < 1.0){
+        if((x0-x1).abs() <1.0 && (y0-y1).abs() < 1.0){
             return image.clone();
         }
         let mut img = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(image, (x0, y0), (x1, y1), color));
@@ -178,11 +206,7 @@ impl App for DragApp {
     //UPDATE è FONDAMENTALE. CI DEVE ESSERE SEMPRE
     fn update(&mut self, ctx: &Context, frame: &mut Frame) {
 
-        let red   = image::Rgba([255u8, 0u8,   0u8, 255u8]);
-        let green = image::Rgba([0u8,   255u8, 0u8, 255u8]);
-        let blue  = image::Rgba([0u8,   0u8,   255u8, 255u8]);
-        let white = image::Rgba([255u8, 255u8, 255u8, 255u8]);
-        let black = image::Rgba([0u8, 0u8, 0u8, 255u8]);
+        
 
         let screens = Screen::all().unwrap();
 
@@ -246,37 +270,63 @@ impl App for DragApp {
              "taken" => {
                 CentralPanel::default().show(ctx, |ui| {
 
-                egui::containers::scroll_area::ScrollArea::vertical().show(ui, |ui| {
+                    egui::containers::scroll_area::ScrollArea::both().show(ui, |ui| {
 
                     ui.heading("Screenshot taken!");
+                
+                    egui::widgets::color_picker::color_picker_color32(ui, &mut self.color, eframe::egui::color_picker::Alpha::Opaque);
+                        
+                    
 
                     ui.horizontal(|ui| {
                         if ui.button("Arrow").clicked() {
                             self.drawing=true;
+                            self.crop=false;
                             self.drawing_type=DrawingType::Arrow;
                             self.image= self.image_back.clone();
                             self.initial_pos=egui::pos2(-1.0, -1.0);
+                            self.crop_point= CropRect::default();
+                            self.current_crop_point= Corner::None;
                         }
                         if ui.button("Circle").clicked() {
                             self.drawing=true;
+                            self.crop=false;
                             self.drawing_type=DrawingType::Circle;
                             self.image= self.image_back.clone();
                             self.initial_pos=egui::pos2(-1.0, -1.0);
+                            self.crop_point= CropRect::default();
+                            self.current_crop_point= Corner::None;
                         }
                         if ui.button("Line").clicked() {
                             self.drawing=true;
+                            self.crop=false;
                             self.drawing_type=DrawingType::Line;
                             self.image= self.image_back.clone();
                             self.initial_pos=egui::pos2(-1.0, -1.0);
+                            self.crop_point= CropRect::default();
+                            self.current_crop_point= Corner::None;
                         }
                         if ui.button("Rectangle").clicked() {
                             self.drawing=true;
+                            self.crop=false;
                             self.drawing_type=DrawingType::Rectangle;
                             self.image= self.image_back.clone();
                             self.initial_pos=egui::pos2(-1.0, -1.0);
+                            self.crop_point= CropRect::default();
+                            self.current_crop_point= Corner::None;
                                                     }
                         if ui.button("Crop").clicked() {
-                            self.image= image::DynamicImage::ImageRgba8(image::imageops::crop(&mut self.image.clone(), 0,0, 600, 20).to_image());
+                            self.drawing=false;
+                            self.crop=true;
+                            self.initial_pos=egui::pos2(-1.0, -1.0);
+                            self.image= self.image_back.clone();
+                            self.crop_point= CropRect::new(0.0,0.0, self.image.width() as f32, self.image.height() as f32);
+                            self.current_crop_point= Corner::None;
+                            self.image= DragApp::draw_rect(&self.image_back, 0.0,0.0, self.image.width() as f32, self.image.height() as f32, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+                            self.image= DragApp::draw_rect(&self.image, 0.5,0.5, self.image.width() as f32 -0.5, self.image.height() as f32 -0.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+                            self.image= DragApp::draw_rect(&self.image, 1.0,1.0, self.image.width() as f32 -1.0, self.image.height() as f32 -1.0, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+                            self.image= DragApp::draw_rect(&self.image, 1.5,1.5, self.image.width() as f32 -1.5, self.image.height() as f32 -1.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+
                         }
                     });
 
@@ -308,10 +358,10 @@ impl App for DragApp {
                                             m = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
                                             match self.drawing_type{
                                                 DrawingType::None=>(),
-                                                DrawingType::Arrow=>self.image= DragApp::draw_arrow(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, green),
-                                                DrawingType::Circle=>self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(& self.image_back, (self.initial_pos.x as i32, self.initial_pos.y as i32), m.distance(self.initial_pos) as i32, red)),
-                                                DrawingType::Line=> self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(& self.image_back, (self.initial_pos.x, self.initial_pos.y), (m.x, m.y),black )),
-                                                DrawingType::Rectangle=> self.image = DragApp::draw_rect(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, white),
+                                                DrawingType::Arrow=>self.image= DragApp::draw_arrow(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())),
+                                                DrawingType::Circle=>self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(& self.image_back, (self.initial_pos.x as i32, self.initial_pos.y as i32), m.distance(self.initial_pos) as i32, image::Rgba(self.color.to_array()))),
+                                                DrawingType::Line=> self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(& self.image_back, (self.initial_pos.x, self.initial_pos.y), (m.x, m.y),image::Rgba(self.color.to_array()))),
+                                                DrawingType::Rectangle=> self.image = DragApp::draw_rect(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())),
                                             }
                                             self.image_back= self.image.clone();
                                             self.drawing=false;
@@ -328,13 +378,106 @@ impl App for DragApp {
                                         m = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
                                         match self.drawing_type{
                                             DrawingType::None=>(),
-                                            DrawingType::Arrow=>self.image= DragApp::draw_arrow(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, green),
-                                            DrawingType::Circle=>self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(& self.image_back, (self.initial_pos.x as i32, self.initial_pos.y as i32), m.distance(self.initial_pos) as i32, red)),
-                                            DrawingType::Line=> self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(& self.image_back, (self.initial_pos.x, self.initial_pos.y), (m.x, m.y),black )),
-                                            DrawingType::Rectangle=> self.image = DragApp::draw_rect(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, white),
+                                            DrawingType::Arrow=>self.image= DragApp::draw_arrow(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())),
+                                            DrawingType::Circle=>self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(& self.image_back, (self.initial_pos.x as i32, self.initial_pos.y as i32), m.distance(self.initial_pos) as i32, image::Rgba(self.color.to_array()))),
+                                            DrawingType::Line=> self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(& self.image_back, (self.initial_pos.x, self.initial_pos.y), (m.x, m.y),image::Rgba(self.color.to_array()))),
+                                            DrawingType::Rectangle=> self.image = DragApp::draw_rect(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())),
                                         }
                                     },
                                 }
+                            }
+                        }
+                        else if self.crop==true{
+                            if  self.initial_pos.x== -1.0 && self.initial_pos.y== -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary){
+                                match  i.pointer.interact_pos(){
+                                    None => (),
+                                    Some(mut m) =>{
+                                        if m.x - image_w.rect.left_top().x >= 0.0 && m.x - image_w.rect.left_top().x <= image_w.rect.width() && m.y - image_w.rect.left_top().y >= 0.0 && m.y - image_w.rect.left_top().y <= image_w.rect.height(){
+                                            m = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
+                                            
+                                            if m.distance(egui::pos2(self.crop_point.x0, self.crop_point.y0)) <= 20.0{
+                                                self.current_crop_point= Corner::TopLeft;
+                                                self.initial_pos= egui::pos2(self.crop_point.x1, self.crop_point.y1);
+                                            }
+                                            else if m.distance(egui::pos2(self.crop_point.x1 , self.crop_point.y0 )) <= 20.0{
+                                                self.current_crop_point= Corner::TopRight;
+                                                self.initial_pos= egui::pos2(self.crop_point.x0 , self.crop_point.y1 );
+                                            }
+                                            else if m.distance(egui::pos2(self.crop_point.x0 , self.crop_point.y1 )) <= 20.0{
+                                                self.current_crop_point= Corner::BottomLeft;
+                                                self.initial_pos= egui::pos2(self.crop_point.x1 , self.crop_point.y0 );
+                                            }
+                                            else if m.distance(egui::pos2(self.crop_point.x1 , self.crop_point.y1 )) <= 20.0{
+                                                self.current_crop_point= Corner::BottomRight;
+                                                self.initial_pos= egui::pos2(self.crop_point.x0 , self.crop_point.y0 );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else if  self.initial_pos.x!= -1.0 && self.initial_pos.y!= -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary){
+                                match  i.pointer.interact_pos(){
+                                    None => (),
+                                    Some(mut m) =>{
+                                        if m.x - image_w.rect.left_top().x >= 0.0 && m.x - image_w.rect.left_top().x <= image_w.rect.width() && m.y - image_w.rect.left_top().y >= 0.0 && m.y - image_w.rect.left_top().y <= image_w.rect.height(){
+                                            m = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
+                                            let p1= self.crop_point.x1 - cmp::max((self.crop_point.x1-m.x)as i32, 50) as f32;
+                                            let p2= self.crop_point.y1 - cmp::max((self.crop_point.y1-m.y)as i32, 50) as f32;
+                                            let p3= self.crop_point.x0 + cmp::max((m.x-self.crop_point.x0)as i32, 50) as f32;
+                                            let p4= self.crop_point.y0 + cmp::max((m.y-self.crop_point.y0)as i32, 50) as f32;
+                                            match self.current_crop_point {
+                                                Corner::TopLeft=> self.crop_point= CropRect::new( p1, p2, self.crop_point.x1, self.crop_point.y1),
+                                                Corner::TopRight=> self.crop_point= CropRect::new(self.crop_point.x0, p2, p3, self.crop_point.y1),
+                                                Corner::BottomLeft=> self.crop_point= CropRect::new(p1, self.crop_point.y0, self.crop_point.x1, p4),
+                                                Corner::BottomRight=> self.crop_point= CropRect::new(self.crop_point.x0, self.crop_point.y0, p3, p4),
+                                                _=>(),
+                                            }
+                                            self.initial_pos=egui::pos2(-1.0, -1.0);
+                                        }
+                                    }
+                                }
+                            }
+                            else if self.initial_pos.x!= -1.0 && self.initial_pos.y!= -1.0{
+                                match  i.pointer.interact_pos(){
+                                    None => (),
+                                    Some(mut m) =>{
+                                        m = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
+                                        let p1= self.crop_point.x1 - cmp::max((self.crop_point.x1-m.x)as i32, 50) as f32;
+                                            let p2= self.crop_point.y1 - cmp::max((self.crop_point.y1-m.y)as i32, 50) as f32;
+                                            let p3= self.crop_point.x0 + cmp::max((m.x-self.crop_point.x0)as i32, 50) as f32;
+                                            let p4= self.crop_point.y0 + cmp::max((m.y-self.crop_point.y0)as i32, 50) as f32;
+                                            match self.current_crop_point {
+                                                Corner::TopLeft=> self.crop_point= CropRect::new( p1, p2, self.crop_point.x1, self.crop_point.y1),
+                                                Corner::TopRight=> self.crop_point= CropRect::new(self.crop_point.x0, p2, p3, self.crop_point.y1),
+                                                Corner::BottomLeft=> self.crop_point= CropRect::new(p1, self.crop_point.y0, self.crop_point.x1, p4),
+                                                Corner::BottomRight=> self.crop_point= CropRect::new(self.crop_point.x0, self.crop_point.y0, p3, p4),
+                                                _=>(),
+                                            }
+                                        self.image = DragApp::draw_rect(&self.image_back, self.crop_point.x0, self.crop_point.y0, self.crop_point.x1, self.crop_point.y1, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+                                        self.image= DragApp::draw_rect(&self.image, self.crop_point.x0 +0.5, self.crop_point.y0+0.5, self.crop_point.x1-0.5, self.crop_point.y1-0.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+                                        self.image= DragApp::draw_rect(&self.image, self.crop_point.x0+1.0, self.crop_point.y0+1.0, self.crop_point.x1-1.0, self.crop_point.y1-1.0, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+                                        self.image= DragApp::draw_rect(&self.image, self.crop_point.x0+1.5, self.crop_point.y0+1.5, self.crop_point.x1-1.5, self.crop_point.y1-1.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+                                    },
+                                }
+                            }
+                            else if self.initial_pos.x== -1.0 && self.initial_pos.y== -1.0 && i.pointer.button_double_clicked(egui::PointerButton::Primary){
+                                match  i.pointer.interact_pos(){
+                                    None => (),
+                                    Some(m) =>{
+                                        if m.x - image_w.rect.left_top().x >= 0.0 && m.x - image_w.rect.left_top().x <= image_w.rect.width() && m.y - image_w.rect.left_top().y >= 0.0 && m.y - image_w.rect.left_top().y <= image_w.rect.height(){
+                                            self.image= image::DynamicImage::ImageRgba8(image::imageops::crop(&mut self.image_back.clone(), self.crop_point.x0 as u32,self.crop_point.y0 as u32, (self.crop_point.x1-self.crop_point.x0) as u32, (self.crop_point.y1-self.crop_point.y0) as u32).to_image());
+                                            self.image= DragApp::draw_rect(&self.image, self.crop_point.x0 +0.5, self.crop_point.y0+0.5, self.crop_point.x1-0.5, self.crop_point.y1-0.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+                                            self.image= DragApp::draw_rect(&self.image, self.crop_point.x0+1.0, self.crop_point.y0+1.0, self.crop_point.x1-1.0, self.crop_point.y1-1.0, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+                                            self.image= DragApp::draw_rect(&self.image, self.crop_point.x0+1.5, self.crop_point.y0+1.5, self.crop_point.x1-1.5, self.crop_point.y1-1.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+                                            self.image_back= self.image.clone();
+                                            self.crop=false;
+                                            self.crop_point=CropRect::default();
+                                            self.current_crop_point=Corner::None;
+                                            self.initial_pos=egui::pos2(-1.0, -1.0);
+                                        }
+                                    }
+                                }
+                                
                             }
                         }
                 
