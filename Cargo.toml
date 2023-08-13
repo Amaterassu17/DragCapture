@@ -27,4 +27,5 @@ eframe = "0.22.0"
 dirs = "5.0.1"
 chrono = "0.4.26"
 global-hotkey = "0.2.3"
+timer = "0.2.0"
 
