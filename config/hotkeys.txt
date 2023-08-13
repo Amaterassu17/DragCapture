@@ -1,5 +1,5 @@
 Alt + F
-Alt + Esc
+Alt + Escape
 Alt + T
 Alt + C
 Alt + S

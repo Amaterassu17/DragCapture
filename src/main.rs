@@ -29,6 +29,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::str::Split;
+use crate::HotkeyAction::TakeScreenshot;
 
 static HOTKEY_FILE: &str = "./config/hotkeys.txt";
 
@@ -39,6 +40,28 @@ enum DrawingType {
     Rectangle,
     Line,
 }
+
+#[derive(Clone)]
+enum HotkeyAction {
+    TakeScreenshot = 0, Quit = 1, SwitchDelay = 2, CopyClipboard = 3, FastSave = 4, Undo = 5, ResetImage = 6
+}
+
+impl HotkeyAction {
+    pub fn new_from_i32 (value: i32) -> Option<HotkeyAction> {
+        match value {
+            0 => Some(HotkeyAction::TakeScreenshot),
+            1 => Some(HotkeyAction::Quit),
+            2 => Some(HotkeyAction::SwitchDelay),
+            3 => Some(HotkeyAction::CopyClipboard),
+            4 => Some(HotkeyAction::FastSave),
+            5 => Some(HotkeyAction::Undo),
+            6 => Some(HotkeyAction::ResetImage),
+            _ => None
+        }
+    }
+}
+
+
 
 struct EguiKeyWrap {
     key: egui::Key,
@@ -386,7 +409,7 @@ struct DragApp {
     hotkey_ui_status: bool,
     changing_hotkey: Vec<bool>,
     //Da gestire
-    hotkey_map: HashMap<u32, (Option<Modifiers>, Code)>,
+    hotkey_map: HashMap<u32, ((Option<Modifiers>, Code), HotkeyAction)>,
     hotkey_created: bool,
     hotkey_manager: GlobalHotKeyManager,
 }
@@ -421,12 +444,12 @@ impl DragApp {
         }
     }
 
-    fn load_hotkey_map(&mut self) -> (Vec<String>, HashMap<u32, (Option<Modifiers>, Code)>) {
+    fn load_hotkey_map(&mut self) -> (Vec<String>, HashMap<u32, ((Option<Modifiers>, Code), HotkeyAction)>) {
         let mut hotkeys_strings: Vec<String> = Vec::new();
         let mut buf = String::new();
         File::open(HOTKEY_FILE).unwrap().read_to_string(&mut buf).unwrap();
-        let mut index: u32 = 0;
-        let mut hotkey_map: HashMap<u32, (Option<Modifiers>, Code)> = HashMap::new();
+        let mut index: i32 = 0;
+        let mut hotkey_map: HashMap<u32, ((Option<Modifiers>, Code),HotkeyAction)> = HashMap::new();
 
         buf.split("\n").for_each(|x| {
             hotkeys_strings.push(x.to_string());
@@ -444,7 +467,7 @@ impl DragApp {
             };
 
             let new_hotkey = HotKey::new(value.0, value.1);
-            hotkey_map.insert(new_hotkey.id(), value);
+            hotkey_map.insert(new_hotkey.id(), (value, HotkeyAction::new_from_i32(index).unwrap()));
             self.hotkey_manager.register(new_hotkey).unwrap();
             index = index + 1;
         });
@@ -452,30 +475,45 @@ impl DragApp {
         (hotkeys_strings, hotkey_map)
     }
 
-    fn hotkey_press(&mut self, ){
-        if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
-            println!("Hotkey pressed: {:?}", event);
-            for (id, action) in &self.hotkey_map.clone() {
-                if *id == event.id {
-                    println!("Hotkey pressed: {:?}", action);
-                    //QUA DOVRò SEMPLICEMENTE MATCHARE TUTTO
-                    // match action.as_str() {
-                    //     "Screenshot" => {
-                    //         println!("Screenshot");
-                    //         self.take_screenshot();
-                    //     }
-                    //     "Copy to clipboard" => {
-                    //         println!("Copy to clipboard");
-                    //         self.copy_to_clipboard();
-                    //     }
-                    //     _ => {
-                    //         println!("Void");
-                    //         //niente
-                    //     }
-                    // }
+    fn hotkey_press(&mut self){
+        if self.hotkey_ui_status == false {
+            if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
+                println!("Hotkey pressed: {:?}", event);
+                let value = self.hotkey_map.get(&event.id).unwrap();
+                match value.1 {
+                    TakeScreenshot => {
+                        if self.mode != "saving" { self.take_screenshot(); }
+                    }
+                    HotkeyAction::Quit => {
+                        std::process::exit(0);
+                    }
+                    HotkeyAction::SwitchDelay => {
+                        self.switch_delay_timer();
+                    }
+                    HotkeyAction::CopyClipboard => {
+                        if self.mode == "taken" {self.copy_to_clipboard();}
+                    }
+                    HotkeyAction::FastSave => {
+                        if self.mode == "taken" {self.save_image_to_disk(self.current_format.clone().as_str(), self.current_path.clone().as_str(), self.current_name.clone().as_str()).unwrap();}
+                    }
+                    HotkeyAction::Undo => {
+                        if self.mode == "taken" {self.undo_action();}
+                    }
+                    HotkeyAction::ResetImage => {
+                        if self.mode == "taken" {self.reset_image();}
+                    }
                 }
             }
         }
+
+
+    }
+
+    pub fn undo_action(&mut self) -> () {
+
+    }
+
+    pub fn reset_image (&mut self) -> () {
 
     }
 
@@ -504,12 +542,20 @@ impl DragApp {
     }
 
     pub fn update_hotkey_map(&mut self, new_codes_string: Vec<String>, old_codes_string: Vec<String>) -> () {
-        let mut codes: (Option<Modifiers>, Code);
-
+        let mut codes: ((Option<Modifiers>, Code), HotkeyAction);
+        let old_hotkey: HotKey;
+        let old_action: HotkeyAction;
         match old_codes_string.len() {
             0 => panic!("Empty hotkey"),
-            1 => self.hotkey_manager.unregister(HotKey::new(None, DragApp::string_to_code(old_codes_string[0].to_string()))).unwrap(),
-            2 => self.hotkey_manager.unregister(HotKey::new(Some(DragApp::string_to_modifiers(old_codes_string[0].to_string())), DragApp::string_to_code(old_codes_string[1].to_string()))).unwrap(),
+            1 => {
+                old_hotkey = HotKey::new(None, DragApp::string_to_code(old_codes_string[0].to_string()));
+                old_action = self.hotkey_map.get(&old_hotkey.id()).unwrap().1.clone();
+                self.hotkey_manager.unregister(old_hotkey).unwrap();
+            },
+            2 => {
+                old_hotkey = HotKey::new(Some(DragApp::string_to_modifiers(old_codes_string[0].to_string())), DragApp::string_to_code(old_codes_string[1].to_string()));
+                old_action = self.hotkey_map.get(&old_hotkey.id()).unwrap().1.clone();
+                self.hotkey_manager.unregister(old_hotkey).unwrap() },
             _ => panic!("Too Many Keys")
         }
 
@@ -525,16 +571,17 @@ impl DragApp {
         match new_codes_string.len() {
             0 => panic!("Empty hotkey"),
             1 => {
-                codes = (None, DragApp::string_to_code(new_codes_string[0].to_string()));
-                new_hotkey = HotKey::new(codes.0, codes.1);
-                self.hotkey_map.insert(new_hotkey.id(), codes);
+                codes = ((None, DragApp::string_to_code(new_codes_string[0].to_string())), old_action);
+                new_hotkey = HotKey::new(codes.0.0, codes.0.1);
+                self.hotkey_map.insert(new_hotkey.id(), codes.clone());
+                self.hotkey_manager.register(HotKey::new(codes.0.0, codes.0.1)).unwrap();
                 for (key, value) in self.hotkey_map.iter() {
                     let mut string = String::new();
-                    match value.0 {
+                    match value.0.0 {
                         Some(x) => string.push_str(&format!("{:?} + ", x)),
                         None => {}
                     }
-                    string.push_str(&format!("{:?}", value.1));
+                    string.push_str(&format!("{:?}", value.0.1));
                     f.write_all(string.as_bytes()).unwrap();
                     f.write_all("\n".as_bytes()).unwrap();
                 }
@@ -542,18 +589,18 @@ impl DragApp {
             2 => {
                 let mut strings: Vec<String> = Vec::new();
 
-                codes = (Some(DragApp::string_to_modifiers(new_codes_string[0].clone())), DragApp::string_to_code(new_codes_string[1].clone()));
-                new_hotkey = HotKey::new(codes.0, codes.1);
+                codes = ((Some(DragApp::string_to_modifiers(new_codes_string[0].clone())), DragApp::string_to_code(new_codes_string[1].clone())), old_action);
+                new_hotkey = HotKey::new(codes.0.0, codes.0.1);
 
-                self.hotkey_map.insert(new_hotkey.id(), codes);
-                self.hotkey_manager.register(HotKey::new(codes.0, codes.1)).unwrap();
+                self.hotkey_map.insert(new_hotkey.id(), codes.clone());
+                self.hotkey_manager.register(HotKey::new(codes.0.0, codes.0.1)).unwrap();
                 for (key, value) in self.hotkey_map.iter() {
                     let mut string = String::new();
-                    match value.0 {
+                    match value.0.0 {
                         Some(x) => string.push_str(&format!("{:?} + ", x)),
                         None => {}
                     }
-                    string.push_str(&format!("{:?}", value.1));
+                    string.push_str(&format!("{:?}", value.0.1));
                     f.write_all(string.as_bytes()).unwrap();
                     f.write_all("\n".as_bytes()).unwrap();
                 }
@@ -693,8 +740,6 @@ impl App for DragApp {
     fn update(&mut self, ctx: &Context, frame: &mut Frame) {
         if self.hotkey_created == false {
             let res = self.load_hotkey_map();
-            println!("Hotkey map loaded: {:?}", res.0);
-            println!("Hotkey strings loaded: {:?}", res.1);
             self.hotkeys_strings = res.0;
             self.hotkey_map = res.1;
         }
