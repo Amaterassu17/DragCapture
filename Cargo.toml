@@ -3,6 +3,9 @@ name = "DragCapture"
 version = "0.1.0"
 edition = "2021"
 
+[profile.dev]
+opt-level = 3
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -15,9 +18,10 @@ imageproc = "0.23.0"
 rusttype="*"
 serde = { version = "1.0.178", features = ["derive"]}
 epaint = "0.22.0"
-egui_glium = "0.20.1"
+egui-winit = "0.22.0"
 egui_extras = "0.22.0"
 eframe = "0.22.0"
 dirs = "5.0.1"
 chrono = "0.4.26"
+global-hotkey = "0.2.3"
 

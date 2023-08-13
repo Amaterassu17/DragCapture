@@ -33,3 +33,14 @@ The application should fulfill the following requirements:
 9. Multi-monitor Support: The utility should be able to recognize and handle
    multiple monitors independently, allowing users to grab screens from any of the connected
    displays.
+
+
+##Chosen Hotkeys
+
+0: Take a Screenshot. Available everywhere in the application and outside. It makes the window focused again
+1: Quit
+2: Switch Delay (Available just in main screen)
+3: Copy to clipboard (Available just on taken screen)
+4: Fast save (Available just on taken screen)
+5: Undo (Available just on taken screen)
+6: Reset image (Available on taken screen)
