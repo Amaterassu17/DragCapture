@@ -586,7 +586,7 @@ impl DragApp {
     pub fn reset_image(&mut self) -> () {}
 
     fn string_to_code(s: String) -> Code {
-        let wrap = StringCodeWrap::new(s);
+        let wrap = StringCodeWrap::new(s.trim().to_string());
         wrap.into()
     }
 
@@ -1098,9 +1098,7 @@ impl App for DragApp {
                                             Some(m) => {
                                                 if m.x - image_w.rect.left_top().x >= 0.0 && m.x - image_w.rect.left_top().x <= image_w.rect.width() && m.y - image_w.rect.left_top().y >= 0.0 && m.y - image_w.rect.left_top().y <= image_w.rect.height() {
                                                     self.image = image::DynamicImage::ImageRgba8(image::imageops::crop(&mut self.image_back.clone(), self.crop_point.x0 as u32, self.crop_point.y0 as u32, (self.crop_point.x1 - self.crop_point.x0) as u32, (self.crop_point.y1 - self.crop_point.y0) as u32).to_image());
-                                                    self.image = DragApp::draw_rect(&self.image, self.crop_point.x0 + 0.5, self.crop_point.y0 + 0.5, self.crop_point.x1 - 0.5, self.crop_point.y1 - 0.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
-                                                    self.image = DragApp::draw_rect(&self.image, self.crop_point.x0 + 1.0, self.crop_point.y0 + 1.0, self.crop_point.x1 - 1.0, self.crop_point.y1 - 1.0, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
-                                                    self.image = DragApp::draw_rect(&self.image, self.crop_point.x0 + 1.5, self.crop_point.y0 + 1.5, self.crop_point.x1 - 1.5, self.crop_point.y1 - 1.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
+                                                    
                                                     self.image_back = self.image.clone();
                                                     self.crop = false;
                                                     self.crop_point = CropRect::default();
