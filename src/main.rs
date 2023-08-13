@@ -5,7 +5,6 @@ use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContex
 use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions, InputState};
 use eframe::egui::{self, Modifiers};
 use egui::widgets::color_picker;
-use egui_glium::egui_winit::egui::{Color32, Rounding};
 use imageproc::point::Point;
 use screenshots::{Screen, Compression};
 use screenshots;
@@ -25,7 +24,7 @@ use rusttype::*;
 use global_hotkey::hotkey;
 use global_hotkey::GlobalHotKeyEvent;
 use global_hotkey::{
-    hotkey::{Code, HotKey, Modifiers},
+    hotkey::{Code, HotKey},
     GlobalHotKeyManager,
 };
 use std::collections::HashMap;
@@ -435,7 +434,7 @@ struct DragApp {
     hotkeys_strings: Vec<String>,
     hotkey_ui_status: bool,
     changing_hotkey: Vec<bool>,
-    hotkey_map: HashMap<u32, ((Option<Modifiers>, Code), HotkeyAction)>,
+    hotkey_map: HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)>,
     hotkey_created: bool,
     hotkey_manager: GlobalHotKeyManager,
     crop: bool,
@@ -501,12 +500,12 @@ impl DragApp {
         }
     }
 
-    fn load_hotkey_map(&mut self) -> (Vec<String>, HashMap<u32, ((Option<Modifiers>, Code), HotkeyAction)>) {
+    fn load_hotkey_map(&mut self) -> (Vec<String>, HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)>) {
         let mut hotkeys_strings: Vec<String> = Vec::new();
         let mut buf = String::new();
         File::open(HOTKEY_FILE).unwrap().read_to_string(&mut buf).unwrap();
         let mut index: i32 = 0;
-        let mut hotkey_map: HashMap<u32, ((Option<Modifiers>, Code),HotkeyAction)> = HashMap::new();
+        let mut hotkey_map: HashMap<u32, ((Option<hotkey::Modifiers>, Code),HotkeyAction)> = HashMap::new();
 
         buf.split("\n").for_each(|x| {
             hotkeys_strings.push(x.to_string());
@@ -579,27 +578,27 @@ impl DragApp {
         wrap.into()
     }
 
-    fn string_to_modifiers(s: String) -> Modifiers {
+    fn string_to_modifiers(s: String) -> hotkey::Modifiers {
         match s.as_str() {
-            "Alt" => Modifiers::ALT,
-            "Ctrl" => Modifiers::CONTROL,
-            "Shift" => Modifiers::SHIFT,
-            "AltGraph" => Modifiers::ALT_GRAPH,
-            "CapsLock" => Modifiers::CAPS_LOCK,
-            "Fn" => Modifiers::FN,
-            "Symbol" => Modifiers::SYMBOL,
-            "Hyper" => Modifiers::HYPER,
-            "Meta" => Modifiers::META,
-            "NumLock" => Modifiers::NUM_LOCK,
-            "ScrollLock" => Modifiers::SCROLL_LOCK,
-            "Super" => Modifiers::SUPER,
-            "SymbolLock" => Modifiers::SYMBOL_LOCK,
-            _ => { Modifiers::default() }
+            "Alt" => hotkey::Modifiers::ALT,
+            "Ctrl" => hotkey::Modifiers::CONTROL,
+            "Shift" => hotkey::Modifiers::SHIFT,
+            "AltGraph" => hotkey::Modifiers::ALT_GRAPH,
+            "CapsLock" => hotkey::Modifiers::CAPS_LOCK,
+            "Fn" => hotkey::Modifiers::FN,
+            "Symbol" => hotkey::Modifiers::SYMBOL,
+            "Hyper" => hotkey::Modifiers::HYPER,
+            "Meta" => hotkey::Modifiers::META,
+            "NumLock" => hotkey::Modifiers::NUM_LOCK,
+            "ScrollLock" => hotkey::Modifiers::SCROLL_LOCK,
+            "Super" => hotkey::Modifiers::SUPER,
+            "SymbolLock" => hotkey::Modifiers::SYMBOL_LOCK,
+            _ => { hotkey::Modifiers::default() }
         }
     }
 
     pub fn update_hotkey_map(&mut self, new_codes_string: Vec<String>, old_codes_string: Vec<String>) -> () {
-        let mut codes: ((Option<Modifiers>, Code), HotkeyAction);
+        let mut codes: ((Option<hotkey::Modifiers>, Code), HotkeyAction);
         let old_hotkey: HotKey;
         let old_action: HotkeyAction;
         match old_codes_string.len() {
@@ -980,7 +979,7 @@ impl App for DragApp {
                                             DrawingType::Rectangle=> self.image = DragApp::draw_rect(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())),
                                             }
                                         }
-                                    },
+                                    }
                                 }
                             }
                         else if self.crop==true{
@@ -1117,11 +1116,6 @@ impl App for DragApp {
 
                     });
 
-
-                                    }
-                                }
-                            }
-                        });
 
 
                         ui.horizontal(|ui| {

@@ -17,7 +17,9 @@ dependencies = [
  "hotkey",
  "image",
  "imageproc",
+ "rusttype",
  "screenshots",
+ "serde",
 ]
 
 [[package]]
