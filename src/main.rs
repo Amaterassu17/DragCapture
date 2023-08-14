@@ -3,7 +3,7 @@ use std::time::Duration;
 use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContext};
 
 use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions, InputState};
-use eframe::egui::{self, Direction, Modifiers, Pos2, Vec2};
+use eframe::egui::{self, Direction, Modifiers, Vec2};
 use egui::widgets::color_picker;
 use imageproc::point::Point;
 use screenshots::{Screen, Compression};
@@ -28,15 +28,15 @@ use global_hotkey::{
     hotkey::{Code, HotKey},
     GlobalHotKeyManager,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::rc::Rc;
 use std::str::Split;
-use timer::Timer;
+use eframe::egui::Align::Min;
 use crate::HotkeyAction::TakeScreenshot;
 
-static HOTKEY_FILE: &str = "./config/hotkeys.txt";
+static HOTKEY_FILE: &str = "./config/hotkeys";
 
 enum DrawingType {
     None,
@@ -68,6 +68,18 @@ impl HotkeyAction {
             5 => Some(HotkeyAction::Undo),
             6 => Some(HotkeyAction::ResetImage),
             _ => None
+        }
+    }
+
+    pub fn i32_from_action(value: HotkeyAction) -> i32 {
+        match value {
+            TakeScreenshot => {0}
+            HotkeyAction::Quit => {1}
+            HotkeyAction::SwitchDelay => {2}
+            HotkeyAction::CopyClipboard => {3}
+            HotkeyAction::FastSave => {4}
+            HotkeyAction::Undo => {5}
+            HotkeyAction::ResetImage => {6}
         }
     }
 }
@@ -186,6 +198,86 @@ impl From<EguiKeyWrap> for global_hotkey::hotkey::Code {
     }
 }
 
+impl Into<String> for EguiKeyWrap {
+    fn into(self) -> String {
+        match self.key {
+            Key::ArrowDown => {"ArrowDown".to_string()},
+            Key::ArrowLeft => {"ArrowLeft".to_string()},
+            Key::ArrowRight => {"ArrowRight".to_string()},
+            Key::ArrowUp => {"ArrowUp".to_string()},
+            Key::Escape => {"Escape".to_string()},
+            Key::Tab => {"Tab".to_string()},
+            Key::Backspace => {"Backspace".to_string()},
+            Key::Enter => {"Enter".to_string()},
+            Key::Space => {"Space".to_string()},
+            Key::Insert => {"Insert".to_string()},
+            Key::Delete => {"Insert".to_string()},
+            Key::Home => {"Home".to_string()},
+            Key::End => {"End".to_string()},
+            Key::PageUp => {"PageUp".to_string()},
+            Key::PageDown => {"PageDown".to_string()},
+            Key::Minus => {"Minus".to_string()},
+            Key::PlusEquals => {"PlusEquals".to_string()},
+            Key::Num0 => {"Num0".to_string()},
+            Key::Num1 => {"Num1".to_string()},
+            Key::Num2 => {"Num2".to_string()},
+            Key::Num3 => {"Num3".to_string()},
+            Key::Num4 => {"Num4".to_string()},
+            Key::Num5 => {"Num5".to_string()},
+            Key::Num6 => {"Num6".to_string()},
+            Key::Num7 => {"Num7".to_string()},
+            Key::Num8 => {"Num8".to_string()},
+            Key::Num9 => {"Num9".to_string()},
+            Key::A => {"KeyA".to_string()},
+            Key::B => {"KeyB".to_string()},
+            Key::C => {"KeyC".to_string()},
+            Key::D => {"KeyD".to_string()},
+            Key::E => {"KeyE".to_string()},
+            Key::F => {"KeyF".to_string()},
+            Key::G => {"KeyG".to_string()},
+            Key::H => {"KeyH".to_string()},
+            Key::I => {"KeyI".to_string()},
+            Key::J => {"KeyJ".to_string()},
+            Key::K => {"KeyK".to_string()},
+            Key::L => {"KeyL".to_string()},
+            Key::M => {"KeyM".to_string()},
+            Key::N => {"KeyN".to_string()},
+            Key::O => {"KeyO".to_string()},
+            Key::P => {"KeyP".to_string()},
+            Key::Q => {"KeyQ".to_string()},
+            Key::R => {"KeyR".to_string()},
+            Key::S => {"KeyS".to_string()},
+            Key::T => {"KeyT".to_string()},
+            Key::U => {"KeyU".to_string()},
+            Key::V => {"KeyV".to_string()},
+            Key::W => {"KeyW".to_string()},
+            Key::X => {"KeyX".to_string()},
+            Key::Y => {"KeyY".to_string()},
+            Key::Z => {"KeyZ".to_string()},
+            Key::F1 => {"F1".to_string()},
+            Key::F2 => {"F2".to_string()},
+            Key::F3 => {"F3".to_string()},
+            Key::F4 => {"F4".to_string()},
+            Key::F5 => {"F5".to_string()},
+            Key::F6 => {"F6".to_string()},
+            Key::F7 => {"F7".to_string()},
+            Key::F8 => {"F8".to_string()},
+            Key::F9 => {"F9".to_string()},
+            Key::F10 => {"F10".to_string()},
+            Key::F11 => {"F11".to_string()},
+            Key::F12 => {"F12".to_string()},
+            Key::F13 => {"F13".to_string()},
+            Key::F14 => {"F14".to_string()},
+            Key::F15 => {"F15".to_string()},
+            Key::F16 => {"F16".to_string()},
+            Key::F17 => {"F17".to_string()},
+            Key::F18 => {"F18".to_string()},
+            Key::F19 => {"F19".to_string()},
+            Key::F20 => {"F20".to_string()},
+        }
+    }
+}
+
 struct StringCodeWrap {
     code: String,
 }
@@ -261,32 +353,32 @@ impl Into<Code> for StringCodeWrap {
             "Num7" => Code::Numpad7,
             "Num8" => Code::Numpad8,
             "Num9" => Code::Numpad9,
-            "A" => Code::KeyA,
-            "B" => Code::KeyB,
-            "C" => Code::KeyC,
-            "D" => Code::KeyD,
-            "E" => Code::KeyE,
-            "F" => Code::KeyF,
-            "G" => Code::KeyG,
-            "H" => Code::KeyH,
-            "I" => Code::KeyI,
-            "J" => Code::KeyJ,
-            "K" => Code::KeyK,
-            "L" => Code::KeyL,
-            "M" => Code::KeyM,
-            "N" => Code::KeyN,
-            "O" => Code::KeyO,
-            "P" => Code::KeyP,
-            "Q" => Code::KeyQ,
-            "R" => Code::KeyR,
-            "S" => Code::KeyS,
-            "T" => Code::KeyT,
-            "U" => Code::KeyU,
-            "V" => Code::KeyV,
-            "W" => Code::KeyW,
-            "X" => Code::KeyX,
-            "Y" => Code::KeyY,
-            "Z" => Code::KeyZ,
+            "KeyA" => Code::KeyA,
+            "KeyB" => Code::KeyB,
+            "KeyC" => Code::KeyC,
+            "KeyD" => Code::KeyD,
+            "KeyE" => Code::KeyE,
+            "KeyF" => Code::KeyF,
+            "KeyG" => Code::KeyG,
+            "KeyH" => Code::KeyH,
+            "KeyI" => Code::KeyI,
+            "KeyJ" => Code::KeyJ,
+            "KeyK" => Code::KeyK,
+            "KeyL" => Code::KeyL,
+            "KeyM" => Code::KeyM,
+            "KeyN" => Code::KeyN,
+            "KeyO" => Code::KeyO,
+            "KeyP" => Code::KeyP,
+            "KeyQ" => Code::KeyQ,
+            "KeyR" => Code::KeyR,
+            "KeyS" => Code::KeyS,
+            "KeyT" => Code::KeyT,
+            "KeyU" => Code::KeyU,
+            "KeyV" => Code::KeyV,
+            "KeyW" => Code::KeyW,
+            "KeyX" => Code::KeyX,
+            "KeyY" => Code::KeyY,
+            "KeyZ" => Code::KeyZ,
             "F1" => Code::F1,
             "F2" => Code::F2,
             "F3" => Code::F3,
@@ -444,7 +536,6 @@ struct DragApp {
     save_errors: (bool, bool, bool),
     drawing: bool,
     drawing_type: DrawingType,
-    timer: Timer,
     initial_pos: egui::Pos2,
     hotkeys_strings: Vec<String>,
     hotkey_ui_status: bool,
@@ -496,7 +587,6 @@ impl DragApp {
             drawing: false,
             drawing_type: DrawingType::None,
             initial_pos: egui::pos2(-1.0, -1.0),
-            timer: Timer::new(),
             remaining_time : 0,
 
             crop: false,
@@ -521,12 +611,19 @@ impl DragApp {
         let mut hotkeys_strings: Vec<String> = Vec::new();
         let mut buf = String::new();
         File::open(HOTKEY_FILE).unwrap().read_to_string(&mut buf).unwrap();
-        let mut index: i32 = 0;
         let mut hotkey_map: HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)> = HashMap::new();
 
         buf.split("\n").for_each(|x| {
-            hotkeys_strings.push(x.to_string());
-            let mut split = x.split(" + ");
+
+            let mut line = x.split(";");
+
+            //split in 2 parts: action in u32 and hotkey
+            let id = line.next().unwrap().parse::<i32>().unwrap();
+
+            let action = HotkeyAction::new_from_i32(id).unwrap();
+            let hotkey = line.next().unwrap();
+            hotkeys_strings.push(hotkey.to_string());
+            let mut split = hotkey.split(" + ");
             //If there is only a key -> (None, Code), else -> (Some(Modifiers), Code)
             let value = match split.clone().count() {
                 0 => panic!("Empty hotkey"),
@@ -541,9 +638,8 @@ impl DragApp {
 
             let new_hotkey = HotKey::new(value.0, value.1);
             println!("Hotkey: {:?}", new_hotkey);
-            hotkey_map.insert(new_hotkey.id(), (value, HotkeyAction::new_from_i32(index).unwrap()));
+            hotkey_map.insert(new_hotkey.id(), (value, action));
             self.hotkey_manager.register(new_hotkey).unwrap();
-            index = index + 1;
         });
         self.hotkey_created = true;
         (hotkeys_strings, hotkey_map)
@@ -592,19 +688,19 @@ impl DragApp {
 
     fn string_to_modifiers(s: String) -> hotkey::Modifiers {
         match s.as_str() {
-            "Alt" => hotkey::Modifiers::ALT,
-            "Ctrl" => hotkey::Modifiers::CONTROL,
-            "Shift" => hotkey::Modifiers::SHIFT,
-            "AltGraph" => hotkey::Modifiers::ALT_GRAPH,
-            "CapsLock" => hotkey::Modifiers::CAPS_LOCK,
-            "Fn" => hotkey::Modifiers::FN,
-            "Symbol" => hotkey::Modifiers::SYMBOL,
-            "Hyper" => hotkey::Modifiers::HYPER,
-            "Meta" => hotkey::Modifiers::META,
-            "NumLock" => hotkey::Modifiers::NUM_LOCK,
-            "ScrollLock" => hotkey::Modifiers::SCROLL_LOCK,
-            "Super" => hotkey::Modifiers::SUPER,
-            "SymbolLock" => hotkey::Modifiers::SYMBOL_LOCK,
+            "ALT" => hotkey::Modifiers::ALT,
+            "CONTROL" => hotkey::Modifiers::CONTROL,
+            "SHIFT" => hotkey::Modifiers::SHIFT,
+            "ALT_GRAPH" => hotkey::Modifiers::ALT_GRAPH,
+            "CAPS_LOCK" => hotkey::Modifiers::CAPS_LOCK,
+            "FN" => hotkey::Modifiers::FN,
+            "SYMBOL" => hotkey::Modifiers::SYMBOL,
+            "HYPER" => hotkey::Modifiers::HYPER,
+            "META" => hotkey::Modifiers::META,
+            "NUM_LOCK" => hotkey::Modifiers::NUM_LOCK,
+            "SCROLL_LOCK" => hotkey::Modifiers::SCROLL_LOCK,
+            "SUPER" => hotkey::Modifiers::SUPER,
+            "SYMBOL_LOCK" => hotkey::Modifiers::SYMBOL_LOCK,
             _ => { hotkey::Modifiers::default() }
         }
     }
@@ -613,29 +709,35 @@ impl DragApp {
         let mut codes: ((Option<hotkey::Modifiers>, Code), HotkeyAction);
         let old_hotkey: HotKey;
         let old_action: HotkeyAction;
+        let mut index = 1;
         match old_codes_string.len() {
             0 => panic!("Empty hotkey"),
             1 => {
                 old_hotkey = HotKey::new(None, DragApp::string_to_code(old_codes_string[0].to_string()));
-                old_action = self.hotkey_map.get(&old_hotkey.id()).unwrap().1.clone();
+                old_action = self.hotkey_map.remove(&old_hotkey.id()).unwrap().1.clone();
                 self.hotkey_manager.unregister(old_hotkey).unwrap();
             }
             2 => {
                 old_hotkey = HotKey::new(Some(DragApp::string_to_modifiers(old_codes_string[0].to_string())), DragApp::string_to_code(old_codes_string[1].to_string()));
-                old_action = self.hotkey_map.get(&old_hotkey.id()).unwrap().1.clone();
+                old_action = self.hotkey_map.remove(&old_hotkey.id()).unwrap().1.clone();
                 self.hotkey_manager.unregister(old_hotkey).unwrap()
             }
             _ => panic!("Too Many Keys")
         }
 
+        fs::remove_file(HOTKEY_FILE).unwrap();
+
         let mut f = fs::OpenOptions::new()
-            .read(true)
             .write(true) // <--------- this
             .create(true)
+            .truncate(true)
             .open(HOTKEY_FILE)
             .unwrap();
 
         let mut new_hotkey: HotKey;
+        let mut string = String::new();
+
+        let mut temporary_map: BTreeMap<i32, String> = BTreeMap::new();
 
         match new_codes_string.len() {
             0 => panic!("Empty hotkey"),
@@ -645,18 +747,22 @@ impl DragApp {
                 self.hotkey_map.insert(new_hotkey.id(), codes.clone());
                 self.hotkey_manager.register(HotKey::new(codes.0.0, codes.0.1)).unwrap();
                 for (key, value) in self.hotkey_map.iter() {
-                    let mut string = String::new();
+                    let mut temp = String::new();
                     match value.0.0 {
-                        Some(x) => string.push_str(&format!("{:?} + ", x)),
+                        Some(x) => temp.push_str(&format!("{:?} + ", x)),
                         None => {}
                     }
-                    string.push_str(&format!("{:?}", value.0.1));
-                    f.write_all(string.as_bytes()).unwrap();
-                    f.write_all("\n".as_bytes()).unwrap();
+                    // string.push_str(&format!("{}", HotkeyAction::i32_from_action(value.1.clone()).to_string() + ";"));
+
+                    temp.push_str(&format!("{:?}", value.0.1));
+                    temporary_map.insert(HotkeyAction::i32_from_action(value.1.clone()), temp);
+                    // if index != self.hotkey_map.len() {
+                    //     // string.push_str(&format!("\n"));
+                    // }
+                    // index += 1;
                 }
             }
             2 => {
-                let mut strings: Vec<String> = Vec::new();
 
                 codes = ((Some(DragApp::string_to_modifiers(new_codes_string[0].clone())), DragApp::string_to_code(new_codes_string[1].clone())), old_action);
                 new_hotkey = HotKey::new(codes.0.0, codes.0.1);
@@ -664,22 +770,41 @@ impl DragApp {
                 self.hotkey_map.insert(new_hotkey.id(), codes.clone());
                 self.hotkey_manager.register(HotKey::new(codes.0.0, codes.0.1)).unwrap();
                 for (key, value) in self.hotkey_map.iter() {
-                    let mut string = String::new();
+                    let mut temp = String::new();
+
+                    // string.push_str(&format!("{}", HotkeyAction::i32_from_action(value.1.clone()).to_string() + ";"));
                     match value.0.0 {
-                        Some(x) => string.push_str(&format!("{:?} + ", x)),
+                        Some(x) => temp.push_str(&format!("{:?} + ", x)),
                         None => {}
                     }
-                    string.push_str(&format!("{:?}", value.0.1));
-                    f.write_all(string.as_bytes()).unwrap();
-                    f.write_all("\n".as_bytes()).unwrap();
+                    temp.push_str(&format!("{:?}", value.0.1));
+                    temporary_map.insert(HotkeyAction::i32_from_action(value.1.clone()), temp);
+
+                    // if index!= self.hotkey_map.len()
+                    // {                     string.push_str(&format!("\n"));
+                    // }
                 }
             }
             _ => panic!("Too many keys")
         }
+
+
+        for (key, value) in temporary_map.iter() {
+            //write key;value and then \n, except for the last one
+            if *key == (temporary_map.len()-1) as i32 {
+                string.push_str(&format!("{};{}", key, value));
+            }
+            else {
+                string.push_str(&format!("{};{}\n", key, value));
+
+            }
+
+        }
+
+        f.write_all(string.as_bytes()).unwrap();
+
     }
     pub fn take_screenshot(&mut self) {
-
-        // if self.remaining_time == 0 {
 
             let screens = Screen::all().unwrap();
             let mut selected_screen = screens[self.selected_monitor as usize].clone();
@@ -698,25 +823,6 @@ impl DragApp {
             self.image = img.clone();
             self.image_back = self.image.clone();
             self.mode = "taken".to_string();
-            self.remaining_time = self.delay_timer;
-
-
-
-        // }
-        // else {
-            // let self_ref = Rc::new(RefCell::new(self.clone()));
-            //
-            //
-            // self.timer.schedule_with_delay(
-            //     chrono::Duration::seconds(1)
-            //     , || {
-            //         let mut self_mut = self_ref.borrow_mut();
-            //
-            //         self_mut.remaining_time -= 1; self_mut.take_screenshot() });
-
-        // }
-
-
 
     }
 
@@ -857,7 +963,7 @@ impl App for DragApp {
                                         ui.horizontal_wrapped(|ui| {
                                             ui.with_layout(Layout::centered_and_justified(Direction::LeftToRight), |ui| {
                                                 ui.radio_value(&mut self.selected_monitor, i as u32, "Monitor ".to_string() + &i.to_string());
-
+                
                                             });
                                             //Radio button for selection
                                         });
@@ -880,6 +986,8 @@ impl App for DragApp {
                             }
                         });
                     });
+
+
                 });
             }
             "taken" => {
@@ -1296,13 +1404,15 @@ impl App for DragApp {
                             let mut keys_pressed = i.keys_down.clone();
                             keys_pressed.remove(&Key::Enter);
 
+
+
                             let changing_hotkey_index = self.changing_hotkey.iter().position(|&x| x == true).unwrap();
                             let old_hotkey_strings = self.hotkeys_strings[changing_hotkey_index].clone().split(" + ").map(|x| x.to_string()).collect::<Vec<String>>();
                                 println!("{:?}", keys_pressed);
                             if keys_pressed.len() != 0 {
                                 let mut buf: String = "".to_string();
                                 for (i, str_key) in keys_pressed.iter().enumerate() {
-                                    if i == 0 { buf = str_key.symbol_or_name().to_string() } else {
+                                    if i == 0 { buf = EguiKeyWrap{key: str_key.clone()}.into()  } else {
                                         buf = buf.to_string() + " + " + str_key.symbol_or_name();
                                     }
                                 }

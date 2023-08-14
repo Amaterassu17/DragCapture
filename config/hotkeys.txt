@@ -1,7 +1,0 @@
-Alt + F
-Alt + Escape
-Alt + T
-Alt + C
-Alt + S
-Alt + Z
-Alt + R
