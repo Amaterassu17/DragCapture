@@ -543,6 +543,7 @@ struct DragApp {
     hotkey_map: HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)>,
     hotkey_created: bool,
     hotkey_manager: GlobalHotKeyManager,
+    hotkeys_enabled: bool,
     crop: bool,
     crop_point: CropRect,
     current_crop_point: Corner,
@@ -604,6 +605,7 @@ impl DragApp {
             hotkey_map: HashMap::new(),
             hotkey_created: false,
             hotkey_manager: GlobalHotKeyManager::new().unwrap(),
+            hotkeys_enabled:true,
         }
     }
 
@@ -645,14 +647,16 @@ impl DragApp {
         (hotkeys_strings, hotkey_map)
     }
 
-    fn hotkey_press(&mut self) {
-        if self.hotkey_ui_status == false {
+    fn hotkey_press(&mut self, ctx: &Context){
+        if self.hotkeys_enabled == true {
             if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
                 println!("Hotkey pressed: {:?}", event);
                 let value = self.hotkey_map.get(&event.id).unwrap();
                 match value.1 {
                     TakeScreenshot => {
-                        if self.mode != "saving" { self.take_screenshot(); }
+                        if self.mode != "saving" {
+                            self.take_screenshot(ctx);
+                        }
                     }
                     HotkeyAction::Quit => {
                         std::process::exit(0);
@@ -804,29 +808,43 @@ impl DragApp {
         f.write_all(string.as_bytes()).unwrap();
 
     }
-    pub fn take_screenshot(&mut self) {
+    pub fn take_screenshot(&mut self, ctx : &Context) -> () {
+        for mut seconds in (0..self.delay_timer+1).rev() {
 
-            let screens = Screen::all().unwrap();
-            let mut selected_screen = screens[self.selected_monitor as usize].clone();
-            let x = 0;
-            let y = 0;
-            let width = selected_screen.display_info.width;
-            let height = selected_screen.display_info.height;
-            std::thread::sleep(Duration::from_secs(self.delay_timer as u64));
+            if seconds== 0{
+                let screens = Screen::all().unwrap();
+                let mut selected_screen = screens[self.selected_monitor as usize].clone();
+                let x = 0;
+                let y = 0;
+                let width = selected_screen.display_info.width;
+                let height = selected_screen.display_info.height;
+                std::thread::sleep(Duration::from_secs(self.delay_timer as u64));
 
-            let image = selected_screen.capture_area(x, y, width, height).unwrap();
+                let image = selected_screen.capture_area(x, y, width, height).unwrap();
 
-            let buffer = image.to_png(None).unwrap();
-            let img = image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
-            let img = img.resize((width as f32 / 1.5) as u32, (height as f32 / 1.5) as u32, imageops::FilterType::Lanczos3);
+                let buffer = image.to_png(None).unwrap();
+                let img = image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
+                let img = img.resize((width as f32 / 1.5) as u32, (height as f32 / 1.5) as u32, imageops::FilterType::Lanczos3);
 
-            self.image = img.clone();
-            self.image_back = self.image.clone();
-            self.mode = "taken".to_string();
+                self.image = img.clone();
+                self.image_back = self.image.clone();
+                self.mode = "taken".to_string();
+                self.remaining_time= self.delay_timer;
+                return;
+            }
+            else {
+                self.remaining_time = seconds;
+                ctx.request_repaint_after(Duration::from_secs(1));
+                std::thread::sleep(Duration::from_secs(1));
+                seconds -=1;
+                println!("Tolgo secondi");
 
+
+
+            }
+
+        }
     }
-
-
     pub fn copy_to_clipboard(&mut self) {
         let mut clipboard = Clipboard::new().unwrap();
         let r = self.image.resize(self.current_width as u32, self.current_height as u32, imageops::FilterType::Lanczos3).into_rgba8();
@@ -910,10 +928,10 @@ impl DragApp {
 
     pub fn switch_delay_timer(&mut self) {
         match self.delay_timer {
-            0 => self.delay_timer = 1,
-            1 => self.delay_timer = 3,
-            3 => self.delay_timer = 5,
-            5 => self.delay_timer = 0,
+            0 => { self.remaining_time=1;self.delay_timer = 1 },
+            1 => { self.remaining_time=3;self.delay_timer = 3 },
+            3 => { self.remaining_time=5;self.delay_timer = 5 },
+            5 => { self.remaining_time=0;self.delay_timer = 0 },
             _ => {}
         }
     }
@@ -929,7 +947,7 @@ impl App for DragApp {
         }
 
         if self.hotkey_ui_status == false {
-            self.hotkey_press();
+            self.hotkey_press(ctx);
         }
 
         let arial: Font<'static> = Font::try_from_bytes(include_bytes!("../fonts/arial.ttf")).unwrap();
@@ -945,7 +963,7 @@ impl App for DragApp {
                         ui.label("This is a cross-platform utility designed to help people take screenshots. The application is all coded and compiled in Rust");
                         ui.separator();
                         if ui.button("Take a screenshot!").clicked() {
-                            self.take_screenshot();
+                            self.take_screenshot(ctx);
                             frame.set_minimized(false);
                             frame.set_visible(true);
                             frame.focus();
@@ -972,6 +990,7 @@ impl App for DragApp {
                             });
                         });
 
+                        ui.heading("Remaining Time: ".to_owned() + &self.remaining_time.to_string());
 
                         ui.with_layout(egui::Layout::right_to_left(Align::Max), |ui| {
 
@@ -1375,13 +1394,14 @@ impl App for DragApp {
                 });
             }
             "hotkey" => {
+                self.hotkeys_enabled = false;
                 let hotkeys: Vec<String> = vec!["Take a Screenshot".to_string(), "Quit".to_string(), "Switch Delay(*)".to_string(), "Copy to Clipboard(*)".to_string(), "Quick Save(*)".to_string(), "Undo(*)".to_string(), "Reset image".to_string()];
 
                 CentralPanel::default().show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.heading("Hotkey Selection Screen");
                         ui.label("Select the hotkey you want to bind.\
-                        You will have 3 seconds to choose the buttons");
+                        Press a key and a modifier OR just a key and then Enter to bind it. If you press more keys/modifiers at once, just one will be chosen");
                         ui.label("(*) = Only usable in the screenshot window");
 
                         for (i, hotkey) in hotkeys.iter().enumerate() {
@@ -1401,7 +1421,10 @@ impl App for DragApp {
 
 
                         ctx.input(|i| if i.key_pressed(Key::Enter) {
+                            let pressed_modifiers = i.modifiers;
+                            println!("{:?}", pressed_modifiers);
                             let mut keys_pressed = i.keys_down.clone();
+                            println!("{:?}", keys_pressed);
                             keys_pressed.remove(&Key::Enter);
 
 
@@ -1411,17 +1434,44 @@ impl App for DragApp {
                                 println!("{:?}", keys_pressed);
                             if keys_pressed.len() != 0 {
                                 let mut buf: String = "".to_string();
-                                for (i, str_key) in keys_pressed.iter().enumerate() {
-                                    if i == 0 { buf = EguiKeyWrap{key: str_key.clone()}.into()  } else {
-                                        buf = buf.to_string() + " + " + str_key.symbol_or_name();
-                                    }
+                                //Take the only element left in an hashset
+                                let key = keys_pressed.iter().next().unwrap();
+                                //we search for the true value in pressed_modifiers which is a structy that contains 5 bool fields
+
+                                if pressed_modifiers.mac_cmd {
+                                    buf = "COMMAND + ".to_string();
+                                }
+                                if pressed_modifiers.command {
+                                    buf = "COMMAND + ".to_string();
+                                }
+                                if pressed_modifiers.ctrl {
+                                    buf = "CONTROL + ".to_string();
+                                }
+                                if pressed_modifiers.shift {
+                                    buf = "SHIFT + ".to_string();
+                                }
+                                if pressed_modifiers.alt {
+                                    buf = "ALT + ".to_string();
                                 }
 
-                                self.hotkeys_strings[changing_hotkey_index] = buf;
-                            }
-                            let new_hotkey_strings = self.hotkeys_strings[changing_hotkey_index].clone().split(" + ").map(|x| x.to_string()).collect::<Vec<String>>();
+                                let pressed_string: String = EguiKeyWrap { key: *key }.into();
+                                buf = buf.to_string() + &*pressed_string;
 
-                            self.update_hotkey_map(new_hotkey_strings, old_hotkey_strings);
+
+                                println!("{}", buf);
+                                self.hotkeys_strings[changing_hotkey_index] = buf;
+                                let new_hotkey_strings = self.hotkeys_strings[changing_hotkey_index].clone().split(" + ").map(|x| x.to_string()).collect::<Vec<String>>();
+
+                                self.update_hotkey_map(new_hotkey_strings, old_hotkey_strings);
+                            }
+                            else
+                            {
+                                self.hotkey_ui_status = false;
+                                for changing_hotkey in self.changing_hotkey.iter_mut() {
+                                    *changing_hotkey = false;
+                                }
+                            }
+
                             self.hotkey_ui_status = false;
                             for changing_hotkey in self.changing_hotkey.iter_mut() {
                                 *changing_hotkey = false;
@@ -1432,6 +1482,7 @@ impl App for DragApp {
                         ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
                             if ui.button("Back").clicked() {
                                 self.mode = "initial".to_string();
+                                self.hotkeys_enabled = true;
                             }
                             if ui.button("Quit").clicked() {
                                 //Routine per chiudere il programma
