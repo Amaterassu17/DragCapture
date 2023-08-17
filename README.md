@@ -1,6 +1,6 @@
 # Drag and Capture Multiplatform Tool
 
-# sXXXXXX Gennuso Angelo, sXXXXXX Greco Roberto, sXXXXXX Nikiforos Lorenzo
+# s310082 Gennuso Angelo, s Greco Roberto, s317616 Nikiforos Lorenzo
 
 This tool is part of the 2023-2024 project for the italian System and Device Programming course held by professor Malnati in 2022-2023.
 Following, the requirements for the application are presented.

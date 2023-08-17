@@ -1,39 +1,29 @@
 use std::borrow::Cow;
-use std::time::Duration;
-use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContext};
+use std::time::{Duration, Instant};
+use eframe::{App, Frame, run_native, egui::CentralPanel, CreationContext};
 
-use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions, InputState};
+use egui::{Context, TextureOptions, InputState};
 use eframe::egui::{self, Direction, Modifiers, Vec2};
-use egui::widgets::color_picker;
 use imageproc::point::Point;
-use screenshots::{Screen, Compression};
+use screenshots::{Screen};
 use screenshots;
-use std::{fs, cmp, time};
-use std::cell::RefCell;
+use std::{fs, cmp};
 use image::*;
 use arboard::*;
 use egui::Align::Center;
 use epaint::ColorImage;
-use image::ImageError::IoError;
 use std::error::Error;
 use std::path::Path;
 use dirs;
 use chrono;
 use eframe::egui::{Align, Key, Layout};
 use rusttype::*;
-
 use global_hotkey::hotkey;
 use global_hotkey::GlobalHotKeyEvent;
-use global_hotkey::{
-    hotkey::{Code, HotKey},
-    GlobalHotKeyManager,
-};
+use global_hotkey::{hotkey::{Code, HotKey}, GlobalHotKeyManager, };
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs::File;
 use std::io::{Read, Write};
-use std::rc::Rc;
-use std::str::Split;
-use eframe::egui::Align::Min;
 use crate::HotkeyAction::TakeScreenshot;
 
 static HOTKEY_FILE: &str = "./config/hotkeys";
@@ -86,7 +76,7 @@ impl HotkeyAction {
 
 
 struct EguiKeyWrap {
-    key: egui::Key,
+    key: Key,
 }
 
 
@@ -553,6 +543,7 @@ struct DragApp {
     text_string: String,
     all_keys: Vec<Key>,
     remaining_time: u32,
+
 }
 
 fn create_visuals() -> egui::style::Visuals {
@@ -581,6 +572,7 @@ impl DragApp {
             image: DynamicImage::default(),
             image_back: DynamicImage::default(),
             image_history: VecDeque::new(),
+
             current_width: 0,
             current_height: 0,
             current_name: chrono::Local::now().format("%Y_%m_%d_%H_%M_%S").to_string(),
@@ -641,7 +633,6 @@ impl DragApp {
             };
 
             let new_hotkey = HotKey::new(value.0, value.1);
-            println!("Hotkey: {:?}", new_hotkey);
             hotkey_map.insert(new_hotkey.id(), (value, action));
             self.hotkey_manager.register(new_hotkey).unwrap();
         });
@@ -652,7 +643,6 @@ impl DragApp {
     fn hotkey_press(&mut self, ctx: &Context){
         if self.hotkeys_enabled == true {
             if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
-                println!("Hotkey pressed: {:?}", event);
                 let value = self.hotkey_map.get(&event.id).unwrap();
                 match value.1 {
                     TakeScreenshot => {
@@ -811,15 +801,18 @@ impl DragApp {
 
     }
     pub fn take_screenshot(&mut self, ctx : &Context) -> () {
-        for mut seconds in (0..self.delay_timer+1).rev() {
 
-            if seconds== 0{
+                let inst1 = Instant::now();
+                //self.delay_timer
+
+
                 let screens = Screen::all().unwrap();
                 let mut selected_screen = screens[self.selected_monitor as usize].clone();
                 let x = 0;
                 let y = 0;
                 let width = selected_screen.display_info.width;
                 let height = selected_screen.display_info.height;
+
                 std::thread::sleep(Duration::from_secs(self.delay_timer as u64));
 
                 let image = selected_screen.capture_area(x, y, width, height).unwrap();
@@ -834,20 +827,11 @@ impl DragApp {
                 self.mode = "taken".to_string();
                 self.remaining_time= self.delay_timer;
                 return;
-            }
-            else {
-                self.remaining_time = seconds;
-                ctx.request_repaint_after(Duration::from_secs(1));
-                std::thread::sleep(Duration::from_secs(1));
-                seconds -=1;
-                println!("Tolgo secondi");
 
 
-
-            }
 
         }
-    }
+
 
     pub fn undo_image_modify (&mut self) -> () {
 
@@ -857,35 +841,22 @@ impl DragApp {
                 let image = self.image_history.pop_front();
                 self.image = image.unwrap();
                 self.image_back = self.image.clone();
-                println!("Image history: {:?}", self.image_history.len());
             }
-            // else {
-            //     self.image = self.image_back.clone();
-            //     self.image_history.pop();
-            //     self.mode = "taken".to_string();
-            // }
-
         }
     }
 
     pub fn save_image_history (&mut self) -> () {
-
-            self.image_history.push_front(self.image.clone());
-
-        println!("Image history: {:?}", self.image_history.len());
-
+            self.image_history.push_front(self.image_back.clone());
     }
 
     pub fn reset_image_history (&mut self) -> () {
 
-if self.mode == "taken" {
             let original_image = self.image_history.pop_back();
             self.image = original_image.unwrap();
             self.image_back = self.image.clone();
             self.image_history.clear();
             self.image_history.push_front(self.image.clone());
-            println!("Image history: {:?}", self.image_history.len());
-        }
+
 
     }
 
@@ -1148,7 +1119,7 @@ impl App for DragApp {
                                         self.image = DragApp::draw_rect(&self.image, 1.5, 1.5, self.image.width() as f32 - 1.5, self.image.height() as f32 - 1.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
 
 
-                                        self.save_image_history();
+
 
                                         self.texting = false;
                                         self.text_string = "".to_string();
@@ -1301,6 +1272,7 @@ impl App for DragApp {
                                             None => (),
                                             Some(m) => {
                                                 if m.x - image_w.rect.left_top().x >= 0.0 && m.x - image_w.rect.left_top().x <= image_w.rect.width() && m.y - image_w.rect.left_top().y >= 0.0 && m.y - image_w.rect.left_top().y <= image_w.rect.height() {
+                                                    self.save_image_history();
                                                     self.image = image::DynamicImage::ImageRgba8(image::imageops::crop(&mut self.image_back.clone(), self.crop_point.x0 as u32, self.crop_point.y0 as u32, (self.crop_point.x1 - self.crop_point.x0) as u32, (self.crop_point.y1 - self.crop_point.y0) as u32).to_image());
                                                     
                                                     self.image_back = self.image.clone();
@@ -1308,10 +1280,11 @@ impl App for DragApp {
                                                     self.crop_point = CropRect::default();
                                                     self.current_crop_point = Corner::None;
                                                     self.initial_pos = egui::pos2(-1.0, -1.0);
+
                                                 }
                                             }
                                         }
-                                        self.save_image_history();
+
                                     }
 
 
@@ -1327,13 +1300,17 @@ impl App for DragApp {
                                             }
                                         }
                                     } else if self.initial_pos.x != -1.0 && self.initial_pos.y != -1.0 {
-                                        for key in &self.all_keys {
+                                        for key in &self.all_keys{
                                             if i.consume_key(Modifiers::NONE, *key) {
                                                 if *key == Key::Backspace {
                                                     self.text_string.pop();
                                                 } else if *key == Key::Space {
                                                     self.text_string.push_str(" ");
                                                 } else if *key == Key::Enter {
+                                                    if self.text_string != "".to_string() {
+                                                        self.image_history.push_front(self.image_back.clone());
+                                                    }
+
                                                     self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_text(&self.image_back, image::Rgba(self.color.to_array()), self.initial_pos.x as i32, self.initial_pos.y as i32, rusttype::Scale { x: 30.0, y: 30.0 }, &arial, &self.text_string));
                                                     self.image_back = self.image.clone();
                                                     self.texting = false;
@@ -1346,7 +1323,7 @@ impl App for DragApp {
 
                                             }
                                         }
-                                        self.save_image_history();
+
                                     }
                                 }
                             });
@@ -1388,11 +1365,7 @@ impl App for DragApp {
                         ui.add_space(5.0);
                         ui.separator();
                         ui.add_space(5.0);
-                        ui.horizontal_wrapped(|ui| {
-
-
-
-
+                        ui.vertical(|ui| {
 
                             ui.label("Path: ");
                             ui.text_edit_singleline(&mut self.current_path);
@@ -1506,16 +1479,13 @@ impl App for DragApp {
 
                         ctx.input(|i| if i.key_pressed(Key::Enter) {
                             let pressed_modifiers = i.modifiers;
-                            println!("{:?}", pressed_modifiers);
                             let mut keys_pressed = i.keys_down.clone();
-                            println!("{:?}", keys_pressed);
                             keys_pressed.remove(&Key::Enter);
 
 
 
                             let changing_hotkey_index = self.changing_hotkey.iter().position(|&x| x == true).unwrap();
                             let old_hotkey_strings = self.hotkeys_strings[changing_hotkey_index].clone().split(" + ").map(|x| x.to_string()).collect::<Vec<String>>();
-                                println!("{:?}", keys_pressed);
                             if keys_pressed.len() != 0 {
                                 let mut buf: String = "".to_string();
                                 //Take the only element left in an hashset
@@ -1542,7 +1512,6 @@ impl App for DragApp {
                                 buf = buf.to_string() + &*pressed_string;
 
 
-                                println!("{}", buf);
                                 self.hotkeys_strings[changing_hotkey_index] = buf;
                                 let new_hotkey_strings = self.hotkeys_strings[changing_hotkey_index].clone().split(" + ").map(|x| x.to_string()).collect::<Vec<String>>();
 
