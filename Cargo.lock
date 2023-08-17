@@ -10,16 +10,13 @@ dependencies = [
  "chrono",
  "dirs",
  "eframe",
- "egui-winit",
  "egui_extras",
  "epaint",
  "global-hotkey",
- "hotkey",
  "image",
  "imageproc",
  "rusttype",
  "screenshots",
- "serde",
 ]
 
 [[package]]
@@ -1372,16 +1369,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5444c27eef6923071f7ebcc33e3444508466a76f7a2b93da00ed6e19f30c1ddb"
 dependencies = [
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "hotkey"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68ed8ca7b33e83cea6c667b7c7185443c39fb155f593dd8eb168ecdd12bed5c8"
-dependencies = [
- "winapi",
- "x11-dl",
 ]
 
 [[package]]
