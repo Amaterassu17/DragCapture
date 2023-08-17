@@ -542,8 +542,6 @@ struct DragApp {
     texting: bool,
     text_string: String,
     all_keys: Vec<Key>,
-    remaining_time: u32,
-
 }
 
 fn create_visuals() -> egui::style::Visuals {
@@ -582,8 +580,6 @@ impl DragApp {
             drawing: false,
             drawing_type: DrawingType::None,
             initial_pos: egui::pos2(-1.0, -1.0),
-            remaining_time : 0,
-
             crop: false,
             crop_point: CropRect::default(),
             current_crop_point: Corner::None,
@@ -825,7 +821,6 @@ impl DragApp {
                 self.image_back = self.image.clone();
                 self.save_image_history();
                 self.mode = "taken".to_string();
-                self.remaining_time= self.delay_timer;
                 return;
 
 
@@ -951,10 +946,10 @@ impl DragApp {
 
     pub fn switch_delay_timer(&mut self) {
         match self.delay_timer {
-            0 => { self.remaining_time=1;self.delay_timer = 1 },
-            1 => { self.remaining_time=3;self.delay_timer = 3 },
-            3 => { self.remaining_time=5;self.delay_timer = 5 },
-            5 => { self.remaining_time=0;self.delay_timer = 0 },
+            0 => { self.delay_timer = 1 },
+            1 => { self.delay_timer = 3 },
+            3 => { self.delay_timer = 5 },
+            5 => { self.delay_timer = 0 },
             _ => {}
         }
     }
@@ -1012,8 +1007,6 @@ impl App for DragApp {
                                 });
                             });
                         });
-
-                        ui.heading("Remaining Time: ".to_owned() + &self.remaining_time.to_string());
 
                         ui.with_layout(egui::Layout::right_to_left(Align::Max), |ui| {
 
@@ -1342,7 +1335,6 @@ impl App for DragApp {
 
                                     if ui.button("Save").clicked() {
                                         self.mode = "saving".to_string();
-                                        self.reset_image_history();
                                     }
 
                                     if ui.button("Quit").clicked() {
@@ -1358,24 +1350,25 @@ impl App for DragApp {
             }
             "saving" => {
                 CentralPanel::default().show(ctx, |ui| {
-
-                    ui.with_layout(Layout::left_to_right(Center), |ui| {
-                    ui.vertical(|ui| {
+                    ui.vertical_centered(|ui| {
                         ui.heading("Choose a path, a name and a format for your screenshot");
                         ui.add_space(5.0);
                         ui.separator();
                         ui.add_space(5.0);
-                        ui.vertical(|ui| {
+                        ui.horizontal_wrapped(|ui| {
 
-                            ui.label("Path: ");
-                            ui.text_edit_singleline(&mut self.current_path);
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label("Path: ");
+                                ui.text_edit_singleline(&mut self.current_path);
+                                if self.save_errors.0 == true
+                                {
+                                    ui.label("Please insert a path");
+                                } else if self.save_errors.1 == true {
+                                    ui.label("Please insert a path that already exists");
+                                }
+                            });
 
-                            if self.save_errors.0 == true
-                            {
-                                ui.label("Please insert a path");
-                            } else if self.save_errors.1 == true {
-                                ui.label("Please insert a path that already exists");
-                            }
+
 
                             ui.horizontal(|ui| {
                                 ui.label("Name: ");
@@ -1446,7 +1439,7 @@ impl App for DragApp {
 
 
                     });
-                });
+
 
                 });
             }
