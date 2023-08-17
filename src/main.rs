@@ -28,7 +28,7 @@ use global_hotkey::{
     hotkey::{Code, HotKey},
     GlobalHotKeyManager,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::rc::Rc;
@@ -528,6 +528,7 @@ struct DragApp {
     mode: String,
     image: DynamicImage,
     image_back: DynamicImage,
+    image_history: VecDeque<DynamicImage>,
     current_name: String,
     current_path: String,
     current_format: String,
@@ -579,6 +580,7 @@ impl DragApp {
             mode: "initial".to_string(),
             image: DynamicImage::default(),
             image_back: DynamicImage::default(),
+            image_history: VecDeque::new(),
             current_width: 0,
             current_height: 0,
             current_name: chrono::Local::now().format("%Y_%m_%d_%H_%M_%S").to_string(),
@@ -655,6 +657,7 @@ impl DragApp {
                 match value.1 {
                     TakeScreenshot => {
                         if self.mode != "saving" {
+                            self.reset_image_history();
                             self.take_screenshot(ctx);
                         }
                     }
@@ -668,22 +671,21 @@ impl DragApp {
                         if self.mode == "taken" { self.copy_to_clipboard(); }
                     }
                     HotkeyAction::FastSave => {
-                        if self.mode == "taken" { self.save_image_to_disk(self.current_format.clone().as_str(), self.current_path.clone().as_str(), self.current_name.clone().as_str()).unwrap(); }
+                        if self.mode == "taken" {
+                            self.reset_image_history();
+                            self.save_image_to_disk(self.current_format.clone().as_str(), self.current_path.clone().as_str(), self.current_name.clone().as_str()).unwrap(); }
                     }
                     HotkeyAction::Undo => {
-                        if self.mode == "taken" { self.undo_action(); }
+                        if self.mode == "taken" { self.undo_image_modify(); }
                     }
                     HotkeyAction::ResetImage => {
-                        if self.mode == "taken" { self.reset_image(); }
+                        if self.mode == "taken" { self.reset_image_history(); }
                     }
                 }
             }
         }
     }
 
-    pub fn undo_action(&mut self) -> () {}
-
-    pub fn reset_image(&mut self) -> () {}
 
     fn string_to_code(s: String) -> Code {
         let wrap = StringCodeWrap::new(s.trim().to_string());
@@ -828,6 +830,7 @@ impl DragApp {
 
                 self.image = img.clone();
                 self.image_back = self.image.clone();
+                self.save_image_history();
                 self.mode = "taken".to_string();
                 self.remaining_time= self.delay_timer;
                 return;
@@ -845,6 +848,47 @@ impl DragApp {
 
         }
     }
+
+    pub fn undo_image_modify (&mut self) -> () {
+
+        if self.mode == "taken" {
+
+            if self.image_history.len() > 1 {
+                let image = self.image_history.pop_front();
+                self.image = image.unwrap();
+                self.image_back = self.image.clone();
+                println!("Image history: {:?}", self.image_history.len());
+            }
+            // else {
+            //     self.image = self.image_back.clone();
+            //     self.image_history.pop();
+            //     self.mode = "taken".to_string();
+            // }
+
+        }
+    }
+
+    pub fn save_image_history (&mut self) -> () {
+
+            self.image_history.push_front(self.image.clone());
+
+        println!("Image history: {:?}", self.image_history.len());
+
+    }
+
+    pub fn reset_image_history (&mut self) -> () {
+
+if self.mode == "taken" {
+            let original_image = self.image_history.pop_back();
+            self.image = original_image.unwrap();
+            self.image_back = self.image.clone();
+            self.image_history.clear();
+            self.image_history.push_front(self.image.clone());
+            println!("Image history: {:?}", self.image_history.len());
+        }
+
+    }
+
     pub fn copy_to_clipboard(&mut self) {
         let mut clipboard = Clipboard::new().unwrap();
         let r = self.image.resize(self.current_width as u32, self.current_height as u32, imageops::FilterType::Lanczos3).into_rgba8();
@@ -884,7 +928,12 @@ impl DragApp {
         if ((x0 - x1).abs() < 1.0 || (y0 - y1).abs() < 1.0) {
             return image.clone();
         }
+
+
+
         let mut img = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(image, (x0, y0), (x1, y1), color));
+
+
 
         // Calculate arrowhead points
         let arrow_length = 15.0;
@@ -910,6 +959,9 @@ impl DragApp {
     }
 
     pub fn draw_rect(image: &DynamicImage, x0: f32, y0: f32, x1: f32, y1: f32, color: Rgba<u8>) -> DynamicImage {
+
+
+
         let mut startx = cmp::min(x0 as i32, x1 as i32);
         let mut endx = cmp::max(x0 as i32, x1 as i32);
         let mut starty = cmp::min(y0 as i32, y1 as i32);
@@ -1020,6 +1072,7 @@ impl App for DragApp {
                                     egui::widgets::color_picker::color_picker_color32(ui, &mut self.color, eframe::egui::color_picker::Alpha::Opaque);
 
                                     if ui.button("Arrow").clicked() {
+
                                         self.drawing = true;
                                         self.crop = false;
                                         self.drawing_type = DrawingType::Arrow;
@@ -1031,6 +1084,7 @@ impl App for DragApp {
                                         self.text_string = "".to_string();
                                     }
                                     if ui.button("Circle").clicked() {
+
                                         self.drawing = true;
                                         self.crop = false;
                                         self.drawing_type = DrawingType::Circle;
@@ -1042,6 +1096,7 @@ impl App for DragApp {
                                         self.text_string = "".to_string();
                                     }
                                     if ui.button("Line").clicked() {
+
                                         self.drawing = true;
                                         self.crop = false;
                                         self.drawing_type = DrawingType::Line;
@@ -1053,6 +1108,7 @@ impl App for DragApp {
                                         self.text_string = "".to_string();
                                     }
                                     if ui.button("Rectangle").clicked() {
+
                                         self.drawing = true;
                                         self.crop = false;
                                         self.drawing_type = DrawingType::Rectangle;
@@ -1064,6 +1120,7 @@ impl App for DragApp {
                                         self.text_string = "".to_string();
                                     }
                                     if ui.button("Text").clicked() {
+
                                         self.drawing = false;
                                         self.crop = false;
                                         self.drawing_type = DrawingType::None;
@@ -1076,6 +1133,8 @@ impl App for DragApp {
                                         self.text_string = "".to_string();
                                     }
                                     if ui.button("Crop").clicked() {
+
+
                                         self.drawing = false;
                                         self.drawing_type = DrawingType::None;
                                         self.crop = true;
@@ -1088,9 +1147,25 @@ impl App for DragApp {
                                         self.image = DragApp::draw_rect(&self.image, 1.0, 1.0, self.image.width() as f32 - 1.0, self.image.height() as f32 - 1.0, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
                                         self.image = DragApp::draw_rect(&self.image, 1.5, 1.5, self.image.width() as f32 - 1.5, self.image.height() as f32 - 1.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
 
+
+                                        self.save_image_history();
+
                                         self.texting = false;
                                         self.text_string = "".to_string();
                                     }
+
+                                    ui.add_enabled_ui(self.image_history.len() > 1 && !self.drawing && !self.crop && !self.texting, |ui| {
+                                        if ui.button("Undo").on_hover_text("Undo last drawing").clicked() {
+                                            self.undo_image_modify();
+                                        }
+                                    });
+
+                                    ui.add_enabled_ui(self.image_history.len() > 1 && !self.drawing && !self.crop && !self.texting, |ui| {
+                                        if ui.button("Reset").on_hover_text("Reset screenshot").clicked() {
+                                            self.reset_image_history();
+                                        }
+                                    });
+
                                 });
 
                             });
@@ -1124,11 +1199,12 @@ impl App for DragApp {
                                                     m = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
                                                     match self.drawing_type {
                                                         DrawingType::None => (),
-                                                        DrawingType::Arrow => self.image = DragApp::draw_arrow(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())),
+                                                        DrawingType::Arrow => self.image = DragApp::draw_arrow(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())) ,
                                                         DrawingType::Circle => self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(&self.image_back, (self.initial_pos.x as i32, self.initial_pos.y as i32), m.distance(self.initial_pos) as i32, image::Rgba(self.color.to_array()))),
                                                         DrawingType::Line => self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&self.image_back, (self.initial_pos.x, self.initial_pos.y), (m.x, m.y), image::Rgba(self.color.to_array()))),
                                                         DrawingType::Rectangle => self.image = DragApp::draw_rect(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())),
                                                     }
+                                                    self.save_image_history();
                                                     self.image_back = self.image.clone();
                                                     self.drawing = false;
                                                     self.drawing_type = DrawingType::None;
@@ -1147,6 +1223,7 @@ impl App for DragApp {
                                                     DrawingType::Circle => self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(&self.image_back, (self.initial_pos.x as i32, self.initial_pos.y as i32), m.distance(self.initial_pos) as i32, image::Rgba(self.color.to_array()))),
                                                     DrawingType::Line => self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&self.image_back, (self.initial_pos.x, self.initial_pos.y), (m.x, m.y), image::Rgba(self.color.to_array()))),
                                                     DrawingType::Rectangle => self.image = DragApp::draw_rect(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())),
+
                                                 }
                                             }
                                         }
@@ -1234,7 +1311,10 @@ impl App for DragApp {
                                                 }
                                             }
                                         }
+                                        self.save_image_history();
                                     }
+
+
                                 }
                                 else if self.texting == true {
                                     if self.initial_pos.x == -1.0 && self.initial_pos.y == -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary) {
@@ -1263,8 +1343,10 @@ impl App for DragApp {
                                                     self.text_string.push(key.symbol_or_name().chars().next().unwrap());
                                                 }
                                                 self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_text(&self.image_back, image::Rgba(self.color.to_array()), self.initial_pos.x as i32, self.initial_pos.y as i32, rusttype::Scale { x: 30.0, y: 30.0 }, &arial, &self.text_string));
+
                                             }
                                         }
+                                        self.save_image_history();
                                     }
                                 }
                             });
@@ -1278,10 +1360,12 @@ impl App for DragApp {
 
                                     if ui.button("Back").clicked() {
                                         self.mode = "initial".to_string();
+                                        self.reset_image_history();
                                     }
 
                                     if ui.button("Save").clicked() {
                                         self.mode = "saving".to_string();
+                                        self.reset_image_history();
                                     }
 
                                     if ui.button("Quit").clicked() {
