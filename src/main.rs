@@ -3,7 +3,7 @@ use std::time::Duration;
 use eframe::{App, Frame, run_native, Storage, egui::CentralPanel, CreationContext};
 
 use egui::{Context, Image, Rect, Visuals, Window, TextureHandle, TextureOptions, InputState};
-use eframe::egui::{self, Direction, Modifiers, Pos2, Vec2};
+use eframe::egui::{self, Direction, Modifiers, Vec2};
 use egui::widgets::color_picker;
 use imageproc::point::Point;
 use screenshots::{Screen, Compression};
@@ -28,15 +28,15 @@ use global_hotkey::{
     hotkey::{Code, HotKey},
     GlobalHotKeyManager,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::rc::Rc;
 use std::str::Split;
-use timer::Timer;
+use eframe::egui::Align::Min;
 use crate::HotkeyAction::TakeScreenshot;
 
-static HOTKEY_FILE: &str = "./config/hotkeys.txt";
+static HOTKEY_FILE: &str = "./config/hotkeys";
 
 enum DrawingType {
     None,
@@ -68,6 +68,18 @@ impl HotkeyAction {
             5 => Some(HotkeyAction::Undo),
             6 => Some(HotkeyAction::ResetImage),
             _ => None
+        }
+    }
+
+    pub fn i32_from_action(value: HotkeyAction) -> i32 {
+        match value {
+            TakeScreenshot => {0}
+            HotkeyAction::Quit => {1}
+            HotkeyAction::SwitchDelay => {2}
+            HotkeyAction::CopyClipboard => {3}
+            HotkeyAction::FastSave => {4}
+            HotkeyAction::Undo => {5}
+            HotkeyAction::ResetImage => {6}
         }
     }
 }
@@ -186,6 +198,86 @@ impl From<EguiKeyWrap> for global_hotkey::hotkey::Code {
     }
 }
 
+impl Into<String> for EguiKeyWrap {
+    fn into(self) -> String {
+        match self.key {
+            Key::ArrowDown => {"ArrowDown".to_string()},
+            Key::ArrowLeft => {"ArrowLeft".to_string()},
+            Key::ArrowRight => {"ArrowRight".to_string()},
+            Key::ArrowUp => {"ArrowUp".to_string()},
+            Key::Escape => {"Escape".to_string()},
+            Key::Tab => {"Tab".to_string()},
+            Key::Backspace => {"Backspace".to_string()},
+            Key::Enter => {"Enter".to_string()},
+            Key::Space => {"Space".to_string()},
+            Key::Insert => {"Insert".to_string()},
+            Key::Delete => {"Insert".to_string()},
+            Key::Home => {"Home".to_string()},
+            Key::End => {"End".to_string()},
+            Key::PageUp => {"PageUp".to_string()},
+            Key::PageDown => {"PageDown".to_string()},
+            Key::Minus => {"Minus".to_string()},
+            Key::PlusEquals => {"PlusEquals".to_string()},
+            Key::Num0 => {"Num0".to_string()},
+            Key::Num1 => {"Num1".to_string()},
+            Key::Num2 => {"Num2".to_string()},
+            Key::Num3 => {"Num3".to_string()},
+            Key::Num4 => {"Num4".to_string()},
+            Key::Num5 => {"Num5".to_string()},
+            Key::Num6 => {"Num6".to_string()},
+            Key::Num7 => {"Num7".to_string()},
+            Key::Num8 => {"Num8".to_string()},
+            Key::Num9 => {"Num9".to_string()},
+            Key::A => {"KeyA".to_string()},
+            Key::B => {"KeyB".to_string()},
+            Key::C => {"KeyC".to_string()},
+            Key::D => {"KeyD".to_string()},
+            Key::E => {"KeyE".to_string()},
+            Key::F => {"KeyF".to_string()},
+            Key::G => {"KeyG".to_string()},
+            Key::H => {"KeyH".to_string()},
+            Key::I => {"KeyI".to_string()},
+            Key::J => {"KeyJ".to_string()},
+            Key::K => {"KeyK".to_string()},
+            Key::L => {"KeyL".to_string()},
+            Key::M => {"KeyM".to_string()},
+            Key::N => {"KeyN".to_string()},
+            Key::O => {"KeyO".to_string()},
+            Key::P => {"KeyP".to_string()},
+            Key::Q => {"KeyQ".to_string()},
+            Key::R => {"KeyR".to_string()},
+            Key::S => {"KeyS".to_string()},
+            Key::T => {"KeyT".to_string()},
+            Key::U => {"KeyU".to_string()},
+            Key::V => {"KeyV".to_string()},
+            Key::W => {"KeyW".to_string()},
+            Key::X => {"KeyX".to_string()},
+            Key::Y => {"KeyY".to_string()},
+            Key::Z => {"KeyZ".to_string()},
+            Key::F1 => {"F1".to_string()},
+            Key::F2 => {"F2".to_string()},
+            Key::F3 => {"F3".to_string()},
+            Key::F4 => {"F4".to_string()},
+            Key::F5 => {"F5".to_string()},
+            Key::F6 => {"F6".to_string()},
+            Key::F7 => {"F7".to_string()},
+            Key::F8 => {"F8".to_string()},
+            Key::F9 => {"F9".to_string()},
+            Key::F10 => {"F10".to_string()},
+            Key::F11 => {"F11".to_string()},
+            Key::F12 => {"F12".to_string()},
+            Key::F13 => {"F13".to_string()},
+            Key::F14 => {"F14".to_string()},
+            Key::F15 => {"F15".to_string()},
+            Key::F16 => {"F16".to_string()},
+            Key::F17 => {"F17".to_string()},
+            Key::F18 => {"F18".to_string()},
+            Key::F19 => {"F19".to_string()},
+            Key::F20 => {"F20".to_string()},
+        }
+    }
+}
+
 struct StringCodeWrap {
     code: String,
 }
@@ -261,32 +353,32 @@ impl Into<Code> for StringCodeWrap {
             "Num7" => Code::Numpad7,
             "Num8" => Code::Numpad8,
             "Num9" => Code::Numpad9,
-            "A" => Code::KeyA,
-            "B" => Code::KeyB,
-            "C" => Code::KeyC,
-            "D" => Code::KeyD,
-            "E" => Code::KeyE,
-            "F" => Code::KeyF,
-            "G" => Code::KeyG,
-            "H" => Code::KeyH,
-            "I" => Code::KeyI,
-            "J" => Code::KeyJ,
-            "K" => Code::KeyK,
-            "L" => Code::KeyL,
-            "M" => Code::KeyM,
-            "N" => Code::KeyN,
-            "O" => Code::KeyO,
-            "P" => Code::KeyP,
-            "Q" => Code::KeyQ,
-            "R" => Code::KeyR,
-            "S" => Code::KeyS,
-            "T" => Code::KeyT,
-            "U" => Code::KeyU,
-            "V" => Code::KeyV,
-            "W" => Code::KeyW,
-            "X" => Code::KeyX,
-            "Y" => Code::KeyY,
-            "Z" => Code::KeyZ,
+            "KeyA" => Code::KeyA,
+            "KeyB" => Code::KeyB,
+            "KeyC" => Code::KeyC,
+            "KeyD" => Code::KeyD,
+            "KeyE" => Code::KeyE,
+            "KeyF" => Code::KeyF,
+            "KeyG" => Code::KeyG,
+            "KeyH" => Code::KeyH,
+            "KeyI" => Code::KeyI,
+            "KeyJ" => Code::KeyJ,
+            "KeyK" => Code::KeyK,
+            "KeyL" => Code::KeyL,
+            "KeyM" => Code::KeyM,
+            "KeyN" => Code::KeyN,
+            "KeyO" => Code::KeyO,
+            "KeyP" => Code::KeyP,
+            "KeyQ" => Code::KeyQ,
+            "KeyR" => Code::KeyR,
+            "KeyS" => Code::KeyS,
+            "KeyT" => Code::KeyT,
+            "KeyU" => Code::KeyU,
+            "KeyV" => Code::KeyV,
+            "KeyW" => Code::KeyW,
+            "KeyX" => Code::KeyX,
+            "KeyY" => Code::KeyY,
+            "KeyZ" => Code::KeyZ,
             "F1" => Code::F1,
             "F2" => Code::F2,
             "F3" => Code::F3,
@@ -436,6 +528,7 @@ struct DragApp {
     mode: String,
     image: DynamicImage,
     image_back: DynamicImage,
+    image_history: VecDeque<DynamicImage>,
     current_name: String,
     current_path: String,
     current_format: String,
@@ -444,7 +537,6 @@ struct DragApp {
     save_errors: (bool, bool, bool),
     drawing: bool,
     drawing_type: DrawingType,
-    timer: Timer,
     initial_pos: egui::Pos2,
     hotkeys_strings: Vec<String>,
     hotkey_ui_status: bool,
@@ -452,6 +544,7 @@ struct DragApp {
     hotkey_map: HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)>,
     hotkey_created: bool,
     hotkey_manager: GlobalHotKeyManager,
+    hotkeys_enabled: bool,
     crop: bool,
     crop_point: CropRect,
     current_crop_point: Corner,
@@ -487,6 +580,7 @@ impl DragApp {
             mode: "initial".to_string(),
             image: DynamicImage::default(),
             image_back: DynamicImage::default(),
+            image_history: VecDeque::new(),
             current_width: 0,
             current_height: 0,
             current_name: chrono::Local::now().format("%Y_%m_%d_%H_%M_%S").to_string(),
@@ -496,7 +590,6 @@ impl DragApp {
             drawing: false,
             drawing_type: DrawingType::None,
             initial_pos: egui::pos2(-1.0, -1.0),
-            timer: Timer::new(),
             remaining_time : 0,
 
             crop: false,
@@ -514,6 +607,7 @@ impl DragApp {
             hotkey_map: HashMap::new(),
             hotkey_created: false,
             hotkey_manager: GlobalHotKeyManager::new().unwrap(),
+            hotkeys_enabled:true,
         }
     }
 
@@ -521,12 +615,19 @@ impl DragApp {
         let mut hotkeys_strings: Vec<String> = Vec::new();
         let mut buf = String::new();
         File::open(HOTKEY_FILE).unwrap().read_to_string(&mut buf).unwrap();
-        let mut index: i32 = 0;
         let mut hotkey_map: HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)> = HashMap::new();
 
         buf.split("\n").for_each(|x| {
-            hotkeys_strings.push(x.to_string());
-            let mut split = x.split(" + ");
+
+            let mut line = x.split(";");
+
+            //split in 2 parts: action in u32 and hotkey
+            let id = line.next().unwrap().parse::<i32>().unwrap();
+
+            let action = HotkeyAction::new_from_i32(id).unwrap();
+            let hotkey = line.next().unwrap();
+            hotkeys_strings.push(hotkey.to_string());
+            let mut split = hotkey.split(" + ");
             //If there is only a key -> (None, Code), else -> (Some(Modifiers), Code)
             let value = match split.clone().count() {
                 0 => panic!("Empty hotkey"),
@@ -541,22 +642,24 @@ impl DragApp {
 
             let new_hotkey = HotKey::new(value.0, value.1);
             println!("Hotkey: {:?}", new_hotkey);
-            hotkey_map.insert(new_hotkey.id(), (value, HotkeyAction::new_from_i32(index).unwrap()));
+            hotkey_map.insert(new_hotkey.id(), (value, action));
             self.hotkey_manager.register(new_hotkey).unwrap();
-            index = index + 1;
         });
         self.hotkey_created = true;
         (hotkeys_strings, hotkey_map)
     }
 
-    fn hotkey_press(&mut self) {
-        if self.hotkey_ui_status == false {
+    fn hotkey_press(&mut self, ctx: &Context){
+        if self.hotkeys_enabled == true {
             if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
                 println!("Hotkey pressed: {:?}", event);
                 let value = self.hotkey_map.get(&event.id).unwrap();
                 match value.1 {
                     TakeScreenshot => {
-                        if self.mode != "saving" { self.take_screenshot(); }
+                        if self.mode != "saving" {
+                            self.reset_image_history();
+                            self.take_screenshot(ctx);
+                        }
                     }
                     HotkeyAction::Quit => {
                         std::process::exit(0);
@@ -568,22 +671,21 @@ impl DragApp {
                         if self.mode == "taken" { self.copy_to_clipboard(); }
                     }
                     HotkeyAction::FastSave => {
-                        if self.mode == "taken" { self.save_image_to_disk(self.current_format.clone().as_str(), self.current_path.clone().as_str(), self.current_name.clone().as_str()).unwrap(); }
+                        if self.mode == "taken" {
+                            self.reset_image_history();
+                            self.save_image_to_disk(self.current_format.clone().as_str(), self.current_path.clone().as_str(), self.current_name.clone().as_str()).unwrap(); }
                     }
                     HotkeyAction::Undo => {
-                        if self.mode == "taken" { self.undo_action(); }
+                        if self.mode == "taken" { self.undo_image_modify(); }
                     }
                     HotkeyAction::ResetImage => {
-                        if self.mode == "taken" { self.reset_image(); }
+                        if self.mode == "taken" { self.reset_image_history(); }
                     }
                 }
             }
         }
     }
 
-    pub fn undo_action(&mut self) -> () {}
-
-    pub fn reset_image(&mut self) -> () {}
 
     fn string_to_code(s: String) -> Code {
         let wrap = StringCodeWrap::new(s.trim().to_string());
@@ -592,19 +694,19 @@ impl DragApp {
 
     fn string_to_modifiers(s: String) -> hotkey::Modifiers {
         match s.as_str() {
-            "Alt" => hotkey::Modifiers::ALT,
-            "Ctrl" => hotkey::Modifiers::CONTROL,
-            "Shift" => hotkey::Modifiers::SHIFT,
-            "AltGraph" => hotkey::Modifiers::ALT_GRAPH,
-            "CapsLock" => hotkey::Modifiers::CAPS_LOCK,
-            "Fn" => hotkey::Modifiers::FN,
-            "Symbol" => hotkey::Modifiers::SYMBOL,
-            "Hyper" => hotkey::Modifiers::HYPER,
-            "Meta" => hotkey::Modifiers::META,
-            "NumLock" => hotkey::Modifiers::NUM_LOCK,
-            "ScrollLock" => hotkey::Modifiers::SCROLL_LOCK,
-            "Super" => hotkey::Modifiers::SUPER,
-            "SymbolLock" => hotkey::Modifiers::SYMBOL_LOCK,
+            "ALT" => hotkey::Modifiers::ALT,
+            "CONTROL" => hotkey::Modifiers::CONTROL,
+            "SHIFT" => hotkey::Modifiers::SHIFT,
+            "ALT_GRAPH" => hotkey::Modifiers::ALT_GRAPH,
+            "CAPS_LOCK" => hotkey::Modifiers::CAPS_LOCK,
+            "FN" => hotkey::Modifiers::FN,
+            "SYMBOL" => hotkey::Modifiers::SYMBOL,
+            "HYPER" => hotkey::Modifiers::HYPER,
+            "META" => hotkey::Modifiers::META,
+            "NUM_LOCK" => hotkey::Modifiers::NUM_LOCK,
+            "SCROLL_LOCK" => hotkey::Modifiers::SCROLL_LOCK,
+            "SUPER" => hotkey::Modifiers::SUPER,
+            "SYMBOL_LOCK" => hotkey::Modifiers::SYMBOL_LOCK,
             _ => { hotkey::Modifiers::default() }
         }
     }
@@ -613,29 +715,35 @@ impl DragApp {
         let mut codes: ((Option<hotkey::Modifiers>, Code), HotkeyAction);
         let old_hotkey: HotKey;
         let old_action: HotkeyAction;
+        let mut index = 1;
         match old_codes_string.len() {
             0 => panic!("Empty hotkey"),
             1 => {
                 old_hotkey = HotKey::new(None, DragApp::string_to_code(old_codes_string[0].to_string()));
-                old_action = self.hotkey_map.get(&old_hotkey.id()).unwrap().1.clone();
+                old_action = self.hotkey_map.remove(&old_hotkey.id()).unwrap().1.clone();
                 self.hotkey_manager.unregister(old_hotkey).unwrap();
             }
             2 => {
                 old_hotkey = HotKey::new(Some(DragApp::string_to_modifiers(old_codes_string[0].to_string())), DragApp::string_to_code(old_codes_string[1].to_string()));
-                old_action = self.hotkey_map.get(&old_hotkey.id()).unwrap().1.clone();
+                old_action = self.hotkey_map.remove(&old_hotkey.id()).unwrap().1.clone();
                 self.hotkey_manager.unregister(old_hotkey).unwrap()
             }
             _ => panic!("Too Many Keys")
         }
 
+        fs::remove_file(HOTKEY_FILE).unwrap();
+
         let mut f = fs::OpenOptions::new()
-            .read(true)
             .write(true) // <--------- this
             .create(true)
+            .truncate(true)
             .open(HOTKEY_FILE)
             .unwrap();
 
         let mut new_hotkey: HotKey;
+        let mut string = String::new();
+
+        let mut temporary_map: BTreeMap<i32, String> = BTreeMap::new();
 
         match new_codes_string.len() {
             0 => panic!("Empty hotkey"),
@@ -645,18 +753,22 @@ impl DragApp {
                 self.hotkey_map.insert(new_hotkey.id(), codes.clone());
                 self.hotkey_manager.register(HotKey::new(codes.0.0, codes.0.1)).unwrap();
                 for (key, value) in self.hotkey_map.iter() {
-                    let mut string = String::new();
+                    let mut temp = String::new();
                     match value.0.0 {
-                        Some(x) => string.push_str(&format!("{:?} + ", x)),
+                        Some(x) => temp.push_str(&format!("{:?} + ", x)),
                         None => {}
                     }
-                    string.push_str(&format!("{:?}", value.0.1));
-                    f.write_all(string.as_bytes()).unwrap();
-                    f.write_all("\n".as_bytes()).unwrap();
+                    // string.push_str(&format!("{}", HotkeyAction::i32_from_action(value.1.clone()).to_string() + ";"));
+
+                    temp.push_str(&format!("{:?}", value.0.1));
+                    temporary_map.insert(HotkeyAction::i32_from_action(value.1.clone()), temp);
+                    // if index != self.hotkey_map.len() {
+                    //     // string.push_str(&format!("\n"));
+                    // }
+                    // index += 1;
                 }
             }
             2 => {
-                let mut strings: Vec<String> = Vec::new();
 
                 codes = ((Some(DragApp::string_to_modifiers(new_codes_string[0].clone())), DragApp::string_to_code(new_codes_string[1].clone())), old_action);
                 new_hotkey = HotKey::new(codes.0.0, codes.0.1);
@@ -664,62 +776,118 @@ impl DragApp {
                 self.hotkey_map.insert(new_hotkey.id(), codes.clone());
                 self.hotkey_manager.register(HotKey::new(codes.0.0, codes.0.1)).unwrap();
                 for (key, value) in self.hotkey_map.iter() {
-                    let mut string = String::new();
+                    let mut temp = String::new();
+
+                    // string.push_str(&format!("{}", HotkeyAction::i32_from_action(value.1.clone()).to_string() + ";"));
                     match value.0.0 {
-                        Some(x) => string.push_str(&format!("{:?} + ", x)),
+                        Some(x) => temp.push_str(&format!("{:?} + ", x)),
                         None => {}
                     }
-                    string.push_str(&format!("{:?}", value.0.1));
-                    f.write_all(string.as_bytes()).unwrap();
-                    f.write_all("\n".as_bytes()).unwrap();
+                    temp.push_str(&format!("{:?}", value.0.1));
+                    temporary_map.insert(HotkeyAction::i32_from_action(value.1.clone()), temp);
+
+                    // if index!= self.hotkey_map.len()
+                    // {                     string.push_str(&format!("\n"));
+                    // }
                 }
             }
             _ => panic!("Too many keys")
         }
+
+
+        for (key, value) in temporary_map.iter() {
+            //write key;value and then \n, except for the last one
+            if *key == (temporary_map.len()-1) as i32 {
+                string.push_str(&format!("{};{}", key, value));
+            }
+            else {
+                string.push_str(&format!("{};{}\n", key, value));
+
+            }
+
+        }
+
+        f.write_all(string.as_bytes()).unwrap();
+
     }
-    pub fn take_screenshot(&mut self) {
+    pub fn take_screenshot(&mut self, ctx : &Context) -> () {
+        for mut seconds in (0..self.delay_timer+1).rev() {
 
-        // if self.remaining_time == 0 {
+            if seconds== 0{
+                let screens = Screen::all().unwrap();
+                let mut selected_screen = screens[self.selected_monitor as usize].clone();
+                let x = 0;
+                let y = 0;
+                let width = selected_screen.display_info.width;
+                let height = selected_screen.display_info.height;
+                std::thread::sleep(Duration::from_secs(self.delay_timer as u64));
 
-            let screens = Screen::all().unwrap();
-            let mut selected_screen = screens[self.selected_monitor as usize].clone();
-            let x = 0;
-            let y = 0;
-            let width = selected_screen.display_info.width;
-            let height = selected_screen.display_info.height;
-            std::thread::sleep(Duration::from_secs(self.delay_timer as u64));
+                let image = selected_screen.capture_area(x, y, width, height).unwrap();
 
-            let image = selected_screen.capture_area(x, y, width, height).unwrap();
+                let buffer = image.to_png(None).unwrap();
+                let img = image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
+                let img = img.resize((width as f32 / 1.5) as u32, (height as f32 / 1.5) as u32, imageops::FilterType::Lanczos3);
 
-            let buffer = image.to_png(None).unwrap();
-            let img = image::load_from_memory_with_format(&buffer, image::ImageFormat::Png).unwrap();
-            let img = img.resize((width as f32 / 1.5) as u32, (height as f32 / 1.5) as u32, imageops::FilterType::Lanczos3);
+                self.image = img.clone();
+                self.image_back = self.image.clone();
+                self.save_image_history();
+                self.mode = "taken".to_string();
+                self.remaining_time= self.delay_timer;
+                return;
+            }
+            else {
+                self.remaining_time = seconds;
+                ctx.request_repaint_after(Duration::from_secs(1));
+                std::thread::sleep(Duration::from_secs(1));
+                seconds -=1;
+                println!("Tolgo secondi");
 
-            self.image = img.clone();
+
+
+            }
+
+        }
+    }
+
+    pub fn undo_image_modify (&mut self) -> () {
+
+        if self.mode == "taken" {
+
+            if self.image_history.len() > 1 {
+                let image = self.image_history.pop_front();
+                self.image = image.unwrap();
+                self.image_back = self.image.clone();
+                println!("Image history: {:?}", self.image_history.len());
+            }
+            // else {
+            //     self.image = self.image_back.clone();
+            //     self.image_history.pop();
+            //     self.mode = "taken".to_string();
+            // }
+
+        }
+    }
+
+    pub fn save_image_history (&mut self) -> () {
+
+            self.image_history.push_front(self.image.clone());
+
+        println!("Image history: {:?}", self.image_history.len());
+
+    }
+
+    pub fn reset_image_history (&mut self) -> () {
+
+if self.mode == "taken" {
+            let original_image = self.image_history.pop_back();
+            self.image = original_image.unwrap();
             self.image_back = self.image.clone();
-            self.mode = "taken".to_string();
-            self.remaining_time = self.delay_timer;
-
-
-
-        // }
-        // else {
-            // let self_ref = Rc::new(RefCell::new(self.clone()));
-            //
-            //
-            // self.timer.schedule_with_delay(
-            //     chrono::Duration::seconds(1)
-            //     , || {
-            //         let mut self_mut = self_ref.borrow_mut();
-            //
-            //         self_mut.remaining_time -= 1; self_mut.take_screenshot() });
-
-        // }
-
-
+            self.image_history.clear();
+            self.image_history.push_front(self.image.clone());
+            println!("Image history: {:?}", self.image_history.len());
+        }
 
     }
-
 
     pub fn copy_to_clipboard(&mut self) {
         let mut clipboard = Clipboard::new().unwrap();
@@ -760,7 +928,12 @@ impl DragApp {
         if ((x0 - x1).abs() < 1.0 || (y0 - y1).abs() < 1.0) {
             return image.clone();
         }
+
+
+
         let mut img = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(image, (x0, y0), (x1, y1), color));
+
+
 
         // Calculate arrowhead points
         let arrow_length = 15.0;
@@ -786,6 +959,9 @@ impl DragApp {
     }
 
     pub fn draw_rect(image: &DynamicImage, x0: f32, y0: f32, x1: f32, y1: f32, color: Rgba<u8>) -> DynamicImage {
+
+
+
         let mut startx = cmp::min(x0 as i32, x1 as i32);
         let mut endx = cmp::max(x0 as i32, x1 as i32);
         let mut starty = cmp::min(y0 as i32, y1 as i32);
@@ -804,10 +980,10 @@ impl DragApp {
 
     pub fn switch_delay_timer(&mut self) {
         match self.delay_timer {
-            0 => self.delay_timer = 1,
-            1 => self.delay_timer = 3,
-            3 => self.delay_timer = 5,
-            5 => self.delay_timer = 0,
+            0 => { self.remaining_time=1;self.delay_timer = 1 },
+            1 => { self.remaining_time=3;self.delay_timer = 3 },
+            3 => { self.remaining_time=5;self.delay_timer = 5 },
+            5 => { self.remaining_time=0;self.delay_timer = 0 },
             _ => {}
         }
     }
@@ -823,7 +999,7 @@ impl App for DragApp {
         }
 
         if self.hotkey_ui_status == false {
-            self.hotkey_press();
+            self.hotkey_press(ctx);
         }
 
         let arial: Font<'static> = Font::try_from_bytes(include_bytes!("../fonts/arial.ttf")).unwrap();
@@ -839,7 +1015,7 @@ impl App for DragApp {
                         ui.label("This is a cross-platform utility designed to help people take screenshots. The application is all coded and compiled in Rust");
                         ui.separator();
                         if ui.button("Take a screenshot!").clicked() {
-                            self.take_screenshot();
+                            self.take_screenshot(ctx);
                             frame.set_minimized(false);
                             frame.set_visible(true);
                             frame.focus();
@@ -857,7 +1033,7 @@ impl App for DragApp {
                                         ui.horizontal_wrapped(|ui| {
                                             ui.with_layout(Layout::centered_and_justified(Direction::LeftToRight), |ui| {
                                                 ui.radio_value(&mut self.selected_monitor, i as u32, "Monitor ".to_string() + &i.to_string());
-
+                
                                             });
                                             //Radio button for selection
                                         });
@@ -866,6 +1042,7 @@ impl App for DragApp {
                             });
                         });
 
+                        ui.heading("Remaining Time: ".to_owned() + &self.remaining_time.to_string());
 
                         ui.with_layout(egui::Layout::right_to_left(Align::Max), |ui| {
 
@@ -880,6 +1057,8 @@ impl App for DragApp {
                             }
                         });
                     });
+
+
                 });
             }
             "taken" => {
@@ -893,6 +1072,7 @@ impl App for DragApp {
                                     egui::widgets::color_picker::color_picker_color32(ui, &mut self.color, eframe::egui::color_picker::Alpha::Opaque);
 
                                     if ui.button("Arrow").clicked() {
+
                                         self.drawing = true;
                                         self.crop = false;
                                         self.drawing_type = DrawingType::Arrow;
@@ -904,6 +1084,7 @@ impl App for DragApp {
                                         self.text_string = "".to_string();
                                     }
                                     if ui.button("Circle").clicked() {
+
                                         self.drawing = true;
                                         self.crop = false;
                                         self.drawing_type = DrawingType::Circle;
@@ -915,6 +1096,7 @@ impl App for DragApp {
                                         self.text_string = "".to_string();
                                     }
                                     if ui.button("Line").clicked() {
+
                                         self.drawing = true;
                                         self.crop = false;
                                         self.drawing_type = DrawingType::Line;
@@ -926,6 +1108,7 @@ impl App for DragApp {
                                         self.text_string = "".to_string();
                                     }
                                     if ui.button("Rectangle").clicked() {
+
                                         self.drawing = true;
                                         self.crop = false;
                                         self.drawing_type = DrawingType::Rectangle;
@@ -937,6 +1120,7 @@ impl App for DragApp {
                                         self.text_string = "".to_string();
                                     }
                                     if ui.button("Text").clicked() {
+
                                         self.drawing = false;
                                         self.crop = false;
                                         self.drawing_type = DrawingType::None;
@@ -949,6 +1133,8 @@ impl App for DragApp {
                                         self.text_string = "".to_string();
                                     }
                                     if ui.button("Crop").clicked() {
+
+
                                         self.drawing = false;
                                         self.drawing_type = DrawingType::None;
                                         self.crop = true;
@@ -961,9 +1147,25 @@ impl App for DragApp {
                                         self.image = DragApp::draw_rect(&self.image, 1.0, 1.0, self.image.width() as f32 - 1.0, self.image.height() as f32 - 1.0, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
                                         self.image = DragApp::draw_rect(&self.image, 1.5, 1.5, self.image.width() as f32 - 1.5, self.image.height() as f32 - 1.5, image::Rgba(epaint::Color32::DARK_GRAY.to_array()));
 
+
+                                        self.save_image_history();
+
                                         self.texting = false;
                                         self.text_string = "".to_string();
                                     }
+
+                                    ui.add_enabled_ui(self.image_history.len() > 1 && !self.drawing && !self.crop && !self.texting, |ui| {
+                                        if ui.button("Undo").on_hover_text("Undo last drawing").clicked() {
+                                            self.undo_image_modify();
+                                        }
+                                    });
+
+                                    ui.add_enabled_ui(self.image_history.len() > 1 && !self.drawing && !self.crop && !self.texting, |ui| {
+                                        if ui.button("Reset").on_hover_text("Reset screenshot").clicked() {
+                                            self.reset_image_history();
+                                        }
+                                    });
+
                                 });
 
                             });
@@ -997,11 +1199,12 @@ impl App for DragApp {
                                                     m = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
                                                     match self.drawing_type {
                                                         DrawingType::None => (),
-                                                        DrawingType::Arrow => self.image = DragApp::draw_arrow(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())),
+                                                        DrawingType::Arrow => self.image = DragApp::draw_arrow(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())) ,
                                                         DrawingType::Circle => self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(&self.image_back, (self.initial_pos.x as i32, self.initial_pos.y as i32), m.distance(self.initial_pos) as i32, image::Rgba(self.color.to_array()))),
                                                         DrawingType::Line => self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&self.image_back, (self.initial_pos.x, self.initial_pos.y), (m.x, m.y), image::Rgba(self.color.to_array()))),
                                                         DrawingType::Rectangle => self.image = DragApp::draw_rect(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())),
                                                     }
+                                                    self.save_image_history();
                                                     self.image_back = self.image.clone();
                                                     self.drawing = false;
                                                     self.drawing_type = DrawingType::None;
@@ -1020,6 +1223,7 @@ impl App for DragApp {
                                                     DrawingType::Circle => self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_hollow_circle(&self.image_back, (self.initial_pos.x as i32, self.initial_pos.y as i32), m.distance(self.initial_pos) as i32, image::Rgba(self.color.to_array()))),
                                                     DrawingType::Line => self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&self.image_back, (self.initial_pos.x, self.initial_pos.y), (m.x, m.y), image::Rgba(self.color.to_array()))),
                                                     DrawingType::Rectangle => self.image = DragApp::draw_rect(&self.image_back, self.initial_pos.x, self.initial_pos.y, m.x, m.y, image::Rgba(self.color.to_array())),
+
                                                 }
                                             }
                                         }
@@ -1107,7 +1311,10 @@ impl App for DragApp {
                                                 }
                                             }
                                         }
+                                        self.save_image_history();
                                     }
+
+
                                 }
                                 else if self.texting == true {
                                     if self.initial_pos.x == -1.0 && self.initial_pos.y == -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary) {
@@ -1136,8 +1343,10 @@ impl App for DragApp {
                                                     self.text_string.push(key.symbol_or_name().chars().next().unwrap());
                                                 }
                                                 self.image = image::DynamicImage::ImageRgba8(imageproc::drawing::draw_text(&self.image_back, image::Rgba(self.color.to_array()), self.initial_pos.x as i32, self.initial_pos.y as i32, rusttype::Scale { x: 30.0, y: 30.0 }, &arial, &self.text_string));
+
                                             }
                                         }
+                                        self.save_image_history();
                                     }
                                 }
                             });
@@ -1151,10 +1360,12 @@ impl App for DragApp {
 
                                     if ui.button("Back").clicked() {
                                         self.mode = "initial".to_string();
+                                        self.reset_image_history();
                                     }
 
                                     if ui.button("Save").clicked() {
                                         self.mode = "saving".to_string();
+                                        self.reset_image_history();
                                     }
 
                                     if ui.button("Quit").clicked() {
@@ -1267,13 +1478,14 @@ impl App for DragApp {
                 });
             }
             "hotkey" => {
+                self.hotkeys_enabled = false;
                 let hotkeys: Vec<String> = vec!["Take a Screenshot".to_string(), "Quit".to_string(), "Switch Delay(*)".to_string(), "Copy to Clipboard(*)".to_string(), "Quick Save(*)".to_string(), "Undo(*)".to_string(), "Reset image".to_string()];
 
                 CentralPanel::default().show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.heading("Hotkey Selection Screen");
                         ui.label("Select the hotkey you want to bind.\
-                        You will have 3 seconds to choose the buttons");
+                        Press a key and a modifier OR just a key and then Enter to bind it. If you press more keys/modifiers at once, just one will be chosen");
                         ui.label("(*) = Only usable in the screenshot window");
 
                         for (i, hotkey) in hotkeys.iter().enumerate() {
@@ -1293,25 +1505,57 @@ impl App for DragApp {
 
 
                         ctx.input(|i| if i.key_pressed(Key::Enter) {
+                            let pressed_modifiers = i.modifiers;
+                            println!("{:?}", pressed_modifiers);
                             let mut keys_pressed = i.keys_down.clone();
+                            println!("{:?}", keys_pressed);
                             keys_pressed.remove(&Key::Enter);
+
+
 
                             let changing_hotkey_index = self.changing_hotkey.iter().position(|&x| x == true).unwrap();
                             let old_hotkey_strings = self.hotkeys_strings[changing_hotkey_index].clone().split(" + ").map(|x| x.to_string()).collect::<Vec<String>>();
                                 println!("{:?}", keys_pressed);
                             if keys_pressed.len() != 0 {
                                 let mut buf: String = "".to_string();
-                                for (i, str_key) in keys_pressed.iter().enumerate() {
-                                    if i == 0 { buf = str_key.symbol_or_name().to_string() } else {
-                                        buf = buf.to_string() + " + " + str_key.symbol_or_name();
-                                    }
+                                //Take the only element left in an hashset
+                                let key = keys_pressed.iter().next().unwrap();
+                                //we search for the true value in pressed_modifiers which is a structy that contains 5 bool fields
+
+                                if pressed_modifiers.mac_cmd {
+                                    buf = "COMMAND + ".to_string();
+                                }
+                                if pressed_modifiers.command {
+                                    buf = "COMMAND + ".to_string();
+                                }
+                                if pressed_modifiers.ctrl {
+                                    buf = "CONTROL + ".to_string();
+                                }
+                                if pressed_modifiers.shift {
+                                    buf = "SHIFT + ".to_string();
+                                }
+                                if pressed_modifiers.alt {
+                                    buf = "ALT + ".to_string();
                                 }
 
-                                self.hotkeys_strings[changing_hotkey_index] = buf;
-                            }
-                            let new_hotkey_strings = self.hotkeys_strings[changing_hotkey_index].clone().split(" + ").map(|x| x.to_string()).collect::<Vec<String>>();
+                                let pressed_string: String = EguiKeyWrap { key: *key }.into();
+                                buf = buf.to_string() + &*pressed_string;
 
-                            self.update_hotkey_map(new_hotkey_strings, old_hotkey_strings);
+
+                                println!("{}", buf);
+                                self.hotkeys_strings[changing_hotkey_index] = buf;
+                                let new_hotkey_strings = self.hotkeys_strings[changing_hotkey_index].clone().split(" + ").map(|x| x.to_string()).collect::<Vec<String>>();
+
+                                self.update_hotkey_map(new_hotkey_strings, old_hotkey_strings);
+                            }
+                            else
+                            {
+                                self.hotkey_ui_status = false;
+                                for changing_hotkey in self.changing_hotkey.iter_mut() {
+                                    *changing_hotkey = false;
+                                }
+                            }
+
                             self.hotkey_ui_status = false;
                             for changing_hotkey in self.changing_hotkey.iter_mut() {
                                 *changing_hotkey = false;
@@ -1322,6 +1566,7 @@ impl App for DragApp {
                         ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
                             if ui.button("Back").clicked() {
                                 self.mode = "initial".to_string();
+                                self.hotkeys_enabled = true;
                             }
                             if ui.button("Quit").clicked() {
                                 //Routine per chiudere il programma
