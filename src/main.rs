@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 mod hotkey_personal_lib;
 mod imageprocessing_personal_lib;
 
