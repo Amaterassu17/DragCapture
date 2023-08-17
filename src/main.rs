@@ -885,7 +885,7 @@ impl App for DragApp {
             "taken" => {
                 CentralPanel::default().show(ctx, |ui| {
                     egui::containers::scroll_area::ScrollArea::both().show(ui, |ui| {
-                        ui.vertical_centered(|ui| {
+                        ui.vertical(|ui| {
                             ui.heading("Screenshot taken!");
                             ui.label("You can now either modify it, save it or copy it to clipboard");
                             ui.horizontal(|ui| {
