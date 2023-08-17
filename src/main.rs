@@ -448,32 +448,46 @@ impl App for DragApp {
                             ui.label("You can now either modify it, save it or copy it to clipboard");
                             ui.horizontal(|ui| {
                                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                                    egui::widgets::color_picker::color_picker_color32(ui, &mut self.color, egui::color_picker::Alpha::Opaque);
-
+                                    if egui::widgets::color_picker::color_picker_color32(ui, &mut self.color, egui::color_picker::Alpha::Opaque){
+                                        self.image_setting=ImageProcSetting::default();
+                                        self.image = self.image_back.clone();
+                                    }
+                                    
+                                    if ui.button("Free Draw").clicked() {
+                                        self.image_setting = ImageProcSetting::setup_free_draw();
+                                        self.image = self.image_back.clone();
+                                     
+                                    }
                                     if ui.button("Arrow").clicked() {
                                         self.image_setting = ImageProcSetting::setup_arrow();
-                                        self.image = self.image_back.clone(); 
+                                        self.image = self.image_back.clone();
+                                     
                                     }
                                     if ui.button("Circle").clicked() {
                                         self.image_setting = ImageProcSetting::setup_circle();
                                         self.image = self.image_back.clone(); 
+                                        
                                     }
                                     if ui.button("Line").clicked() {
                                         self.image_setting = ImageProcSetting::setup_line();
                                         self.image = self.image_back.clone();
+                                        
                                     }
                                     if ui.button("Rectangle").clicked() {
                                         self.image_setting = ImageProcSetting::setup_rectangle();
                                         self.image = self.image_back.clone();
+                                        
                                     }
                                     if ui.button("Text").clicked() {
                                         self.image_setting = ImageProcSetting::setup_text();
                                         self.image = self.image_back.clone();
+                                        
                                     }
                                     if ui.button("Crop").clicked() {
                                         self.image_setting = ImageProcSetting::setup_crop(self.image.width() as f32, self.image.height() as f32);
                                     
                                         self.image = self.image_back.clone();
+                                        
                                         self.image = draw_rect(&self.image_back, 0.0, 0.0, self.image.width() as f32, self.image.height() as f32, Rgba(epaint::Color32::DARK_GRAY.to_array()));
                                         self.image = draw_rect(&self.image, 0.5, 0.5, self.image.width() as f32 - 0.5, self.image.height() as f32 - 0.5, Rgba(epaint::Color32::DARK_GRAY.to_array()));
                                         self.image = draw_rect(&self.image, 1.0, 1.0, self.image.width() as f32 - 1.0, self.image.height() as f32 - 1.0, Rgba(epaint::Color32::DARK_GRAY.to_array()));
@@ -550,7 +564,47 @@ impl App for DragApp {
                                         }
                                     }
                                 }
-                            } else if self.image_setting.crop == true {
+                            } else if self.image_setting.free_drawing == true{
+                                if self.image_setting.initial_pos.x == -1.0 && self.image_setting.initial_pos.y == -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary) {
+                                    match i.pointer.interact_pos() {
+                                        None => (),
+                                        Some(m) => {
+                                            if m.x - image_w.rect.left_top().x >= 0.0 && m.x - image_w.rect.left_top().x <= image_w.rect.width() && m.y - image_w.rect.left_top().y >= 0.0 && m.y - image_w.rect.left_top().y <= image_w.rect.height() {
+                                                self.image_setting.initial_pos = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
+                                                self.image_setting.free_drawing_points.push(self.image_setting.initial_pos);
+                                            }
+                                        }
+                                    }
+                                }else if self.image_setting.initial_pos.x != -1.0 && self.image_setting.initial_pos.y != -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary){
+                                    match i.pointer.interact_pos() {
+                                        None => (),
+                                        Some(mut m) => {
+                                            if m.x - image_w.rect.left_top().x >= 0.0 && m.x - image_w.rect.left_top().x <= image_w.rect.width() && m.y - image_w.rect.left_top().y >= 0.0 && m.y - image_w.rect.left_top().y <= image_w.rect.height() {
+                                                m = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
+                                                self.image= DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&self.image, (self.image_setting.free_drawing_points.last().unwrap().x, self.image_setting.free_drawing_points.last().unwrap().y), (m.x, m.y), Rgba(self.color.to_array())));
+                                                self.save_image_history();
+                                                self.image_back = self.image.clone();
+                                                
+                                                
+                                                self.image_setting.free_drawing = false;
+                                                self.image_setting.free_drawing_points = Vec::new();
+                                                self.image_setting.initial_pos = egui::pos2(-1.0, -1.0);
+                                            }
+                                        }
+                                    }
+                                }else if self.image_setting.initial_pos.x != -1.0 && self.image_setting.initial_pos.y != -1.0 {
+                                    match i.pointer.interact_pos() {
+                                        None => (),
+                                        Some(mut m) => {
+                                            m = egui::pos2(m.x - image_w.rect.left_top().x, m.y - image_w.rect.left_top().y);
+                                            self.image= DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&self.image, (self.image_setting.free_drawing_points.last().unwrap().x, self.image_setting.free_drawing_points.last().unwrap().y), (m.x, m.y), Rgba(self.color.to_array())));
+                                            self.image_setting.free_drawing_points.push(m);
+                                        }
+                                    }
+                                }
+
+
+                            }else if self.image_setting.crop == true {
                                 if self.image_setting.initial_pos.x == -1.0 && self.image_setting.initial_pos.y == -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary) {
                                     match i.pointer.interact_pos() {
                                         None => (),
@@ -676,22 +730,21 @@ impl App for DragApp {
                                     if ui.button("Copy to clipboard").clicked() {
                                         self.image_setting=ImageProcSetting::default();
                                         self.image = self.image_back.clone();
-                                    
-
+                                        
                                         self.copy_to_clipboard();
                                     }
 
                                     if ui.button("Back").clicked() {
                                         self.image_setting=ImageProcSetting::default();
                                         self.image = self.image_back.clone();
-
+                                        
                                         self.mode = Initial;
                                     }
 
                                     if ui.button("Save").clicked() {
                                         self.image_setting=ImageProcSetting::default();
                                         self.image = self.image_back.clone();
-
+                                        
                                         self.mode = Saving;
                                     }
 

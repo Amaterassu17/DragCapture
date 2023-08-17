@@ -98,9 +98,25 @@ pub(crate) struct ImageProcSetting{
     pub current_crop_point: Corner,
     pub texting: bool,
     pub text_string: String,
+    pub free_drawing: bool,
+    pub free_drawing_points: Vec<egui::Pos2>,
 }
 
 impl ImageProcSetting{
+    pub fn setup_free_draw() -> Self{
+        return Self{
+            drawing : false,
+            crop : false,
+            drawing_type : DrawingType::None,
+            initial_pos : egui::pos2(-1.0, -1.0),
+            crop_point : CropRect::default(),
+            current_crop_point : Corner::None,
+            texting : false,
+            text_string : "".to_string(),
+            free_drawing:true,
+            free_drawing_points: Vec::new(),
+        }
+    }
     pub fn setup_arrow() -> Self{
         return Self{
             drawing : true,
@@ -111,6 +127,8 @@ impl ImageProcSetting{
             current_crop_point : Corner::None,
             texting : false,
             text_string : "".to_string(),
+            free_drawing:false,
+            free_drawing_points: Vec::new(),
         }
     }
 
@@ -124,6 +142,8 @@ impl ImageProcSetting{
             current_crop_point : Corner::None,
             texting : false,
             text_string : "".to_string(),
+            free_drawing:false,
+            free_drawing_points: Vec::new(),
         }
     }
     pub fn setup_line() -> Self{
@@ -136,6 +156,8 @@ impl ImageProcSetting{
             current_crop_point : Corner::None,
             texting : false,
             text_string : "".to_string(),
+            free_drawing:false,
+            free_drawing_points: Vec::new(),
         }
     }
     pub fn setup_rectangle() -> Self{
@@ -148,6 +170,8 @@ impl ImageProcSetting{
             current_crop_point : Corner::None,
             texting : false,
             text_string : "".to_string(),
+            free_drawing:false,
+            free_drawing_points: Vec::new(),
         }
     }
 
@@ -161,6 +185,8 @@ impl ImageProcSetting{
             current_crop_point : Corner::None,
             texting : true,
             text_string : "".to_string(),
+            free_drawing:false,
+            free_drawing_points: Vec::new(),
         }
     }
 
@@ -174,6 +200,8 @@ impl ImageProcSetting{
             current_crop_point : Corner::None,
             texting : false,
             text_string : "".to_string(),
+            free_drawing:false,
+            free_drawing_points: Vec::new(),
         }
     }
 }
@@ -189,6 +217,8 @@ impl Default for ImageProcSetting{
             current_crop_point: Corner::None,
             texting: false,
             text_string: "".to_string(),
+            free_drawing:false,
+            free_drawing_points: Vec::new(),
         }
     }
 }
