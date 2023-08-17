@@ -1325,15 +1325,44 @@ impl App for DragApp {
                             ui.horizontal(|ui| {
                                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                     if ui.button("Copy to clipboard").clicked() {
+                                        self.drawing = false;
+                                        self.crop = false;
+                                        self.drawing_type = DrawingType::None;
+                                        self.image = self.image_back.clone();
+                                        self.initial_pos = egui::pos2(-1.0, -1.0);
+                                        self.crop_point = CropRect::default();
+                                        self.current_crop_point = Corner::None;
+                                        self.texting = false;
+                                        self.text_string = "".to_string();
+
                                         self.copy_to_clipboard();
                                     }
 
                                     if ui.button("Back").clicked() {
+                                        self.drawing = false;
+                                        self.crop = false;
+                                        self.drawing_type = DrawingType::None;
+                                        self.image = self.image_back.clone();
+                                        self.initial_pos = egui::pos2(-1.0, -1.0);
+                                        self.crop_point = CropRect::default();
+                                        self.current_crop_point = Corner::None;
+                                        self.texting = false;
+                                        self.text_string = "".to_string();
+
                                         self.mode = "initial".to_string();
-                                        self.reset_image_history();
                                     }
 
                                     if ui.button("Save").clicked() {
+                                        self.drawing = false;
+                                        self.crop = false;
+                                        self.drawing_type = DrawingType::None;
+                                        self.image = self.image_back.clone();
+                                        self.initial_pos = egui::pos2(-1.0, -1.0);
+                                        self.crop_point = CropRect::default();
+                                        self.current_crop_point = Corner::None;
+                                        self.texting = false;
+                                        self.text_string = "".to_string();
+                                        
                                         self.mode = "saving".to_string();
                                     }
 
