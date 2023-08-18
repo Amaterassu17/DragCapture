@@ -1,10 +1,164 @@
+use std::collections::{BTreeMap, HashMap};
+use std::fs;
+use std::fs::File;
+use std::io::{Read, Write};
 use eframe::egui;
 use egui::Key;
-use global_hotkey::hotkey;
-use global_hotkey::hotkey::Code;
+use global_hotkey::{GlobalHotKeyManager, hotkey};
+use global_hotkey::hotkey::{Code, HotKey};
 
 
 pub(crate) static HOTKEY_FILE: &str = "./config/hotkeys";
+
+pub(crate) struct HotkeySettings {
+    pub hotkey_map: HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)>,
+    pub hotkey_created: bool,
+    pub hotkey_manager: GlobalHotKeyManager,
+}
+
+impl HotkeySettings {
+    pub fn new () -> Self {
+
+        HotkeySettings {
+            hotkey_map: HashMap::new(),
+            hotkey_created: false,
+            hotkey_manager: GlobalHotKeyManager::new().unwrap()
+        }
+    }
+
+
+    pub fn load_hotkey_map(&mut self) -> (Vec<String>, HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)>) {
+        let mut hotkeys_strings: Vec<String> = Vec::new();
+        let mut buf = String::new();
+        File::open(HOTKEY_FILE).unwrap().read_to_string(&mut buf).unwrap();
+        let mut hotkey_map: HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)> = HashMap::new();
+
+        buf.split("\n").for_each(|x| {
+            let mut line = x.split(";");
+
+            //split in 2 parts: action in u32 and hotkey
+            let id = line.next().unwrap().parse::<i32>().unwrap();
+
+            let action = HotkeyAction::new_from_i32(id).unwrap();
+            let hotkey = line.next().unwrap();
+            hotkeys_strings.push(hotkey.to_string());
+            let mut split = hotkey.split(" + ");
+            //If there is only a key -> (None, Code), else -> (Some(Modifiers), Code)
+            let value = match split.clone().count() {
+                0 => panic!("Empty hotkey"),
+                1 => (None, StringCodeWrap::string_to_code(split.next().unwrap().to_string())),
+                2 => {
+                    let mut strings: Vec<String> = Vec::new();
+                    split.clone().for_each(|x| strings.push(x.to_string()));
+                    (Some(StringCodeWrap::string_to_modifiers(strings[0].clone())), StringCodeWrap::string_to_code(strings[1].clone()))
+                }
+                _ => panic!("Too many keys")
+            };
+
+            let new_hotkey = HotKey::new(value.0, value.1);
+            hotkey_map.insert(new_hotkey.id(), (value, action));
+            self.hotkey_manager.register(new_hotkey).unwrap();
+        });
+        self.hotkey_created = true;
+        (hotkeys_strings, hotkey_map)
+    }
+
+    pub fn update_hotkey_map(&mut self, new_codes_string: Vec<String>, old_codes_string: Vec<String>) -> () {
+        let codes: ((Option<hotkey::Modifiers>, Code), HotkeyAction);
+        let old_hotkey: HotKey;
+        let old_action: HotkeyAction;
+        match old_codes_string.len() {
+            0 => panic!("Empty hotkey"),
+            1 => {
+                old_hotkey = HotKey::new(None, StringCodeWrap::string_to_code(old_codes_string[0].to_string()));
+                old_action = self.hotkey_map.remove(&old_hotkey.id()).unwrap().1.clone();
+                self.hotkey_manager.unregister(old_hotkey).unwrap();
+            }
+            2 => {
+                old_hotkey = HotKey::new(Some(StringCodeWrap::string_to_modifiers(old_codes_string[0].to_string())), StringCodeWrap::string_to_code(old_codes_string[1].to_string()));
+                old_action = self.hotkey_map.remove(&old_hotkey.id()).unwrap().1.clone();
+                self.hotkey_manager.unregister(old_hotkey).unwrap()
+            }
+            _ => panic!("Too Many Keys")
+        }
+
+        fs::remove_file(HOTKEY_FILE).unwrap();
+
+        let mut f = fs::OpenOptions::new()
+            .write(true) // <--------- this
+            .create(true)
+            .truncate(true)
+            .open(HOTKEY_FILE)
+            .unwrap();
+
+        let new_hotkey: HotKey;
+        let mut string = String::new();
+
+        let mut temporary_map: BTreeMap<i32, String> = BTreeMap::new();
+
+        match new_codes_string.len() {
+            0 => panic!("Empty hotkey"),
+            1 => {
+                codes = ((None, StringCodeWrap::string_to_code(new_codes_string[0].to_string())), old_action);
+                new_hotkey = HotKey::new(codes.0.0, codes.0.1);
+                self.hotkey_map.insert(new_hotkey.id(), codes.clone());
+                self.hotkey_manager.register(HotKey::new(codes.0.0, codes.0.1)).unwrap();
+                for (_, value) in self.hotkey_map.iter() {
+                    let mut temp = String::new();
+                    match value.0.0 {
+                        Some(x) => temp.push_str(&format!("{:?} + ", x)),
+                        None => {}
+                    }
+                    // string.push_str(&format!("{}", HotkeyAction::i32_from_action(value.1.clone()).to_string() + ";"));
+
+                    temp.push_str(&format!("{:?}", value.0.1));
+                    temporary_map.insert(HotkeyAction::i32_from_action(value.1.clone()), temp);
+                    // if index != self.hotkey_map.len() {
+                    //     // string.push_str(&format!("\n"));
+                    // }
+                    // index += 1;
+                }
+            }
+            2 => {
+                codes = ((Some(StringCodeWrap::string_to_modifiers(new_codes_string[0].clone())), StringCodeWrap::string_to_code(new_codes_string[1].clone())), old_action);
+                new_hotkey = HotKey::new(codes.0.0, codes.0.1);
+
+                self.hotkey_map.insert(new_hotkey.id(), codes.clone());
+                self.hotkey_manager.register(HotKey::new(codes.0.0, codes.0.1)).unwrap();
+                for (_, value) in self.hotkey_map.iter() {
+                    let mut temp = String::new();
+
+                    // string.push_str(&format!("{}", HotkeyAction::i32_from_action(value.1.clone()).to_string() + ";"));
+                    match value.0.0 {
+                        Some(x) => temp.push_str(&format!("{:?} + ", x)),
+                        None => {}
+                    }
+                    temp.push_str(&format!("{:?}", value.0.1));
+                    temporary_map.insert(HotkeyAction::i32_from_action(value.1.clone()), temp);
+                }
+            }
+            _ => panic!("Too many keys")
+        }
+
+
+        for (key, value) in temporary_map.iter() {
+            //write key;value and then \n, except for the last one
+            if *key == (temporary_map.len() - 1) as i32 {
+                string.push_str(&format!("{};{}", key, value));
+            } else {
+                string.push_str(&format!("{};{}\n", key, value));
+            }
+        }
+
+        f.write_all(string.as_bytes()).unwrap();
+    }
+
+
+}
+
+
+
+
 
 #[derive(Clone)]
 pub(crate) enum HotkeyAction {
@@ -16,6 +170,8 @@ pub(crate) enum HotkeyAction {
     Undo = 5,
     ResetImage = 6,
 }
+
+
 
 impl HotkeyAction {
     pub fn new_from_i32(value: i32) -> Option<HotkeyAction> {
