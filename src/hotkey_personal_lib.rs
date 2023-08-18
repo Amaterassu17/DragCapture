@@ -10,6 +10,14 @@ use global_hotkey::hotkey::{Code, HotKey};
 
 pub(crate) static HOTKEY_FILE: &str = "./config/hotkeys";
 
+static HOTKEY_INITIAL: &str = "0;ALT + KeyF
+1;ALT + Escape
+2;ALT + KeyT
+3;ALT + KeyC
+4;ALT + KeyS
+5;ALT + KeyZ
+6;ALT + KeyR";
+
 pub(crate) struct HotkeySettings {
     pub hotkey_map: HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)>,
     pub hotkey_created: bool,
@@ -30,7 +38,33 @@ impl HotkeySettings {
     pub fn load_hotkey_map(&mut self) -> (Vec<String>, HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)>) {
         let mut hotkeys_strings: Vec<String> = Vec::new();
         let mut buf = String::new();
-        File::open(HOTKEY_FILE).unwrap().read_to_string(&mut buf).unwrap();
+
+        let file = File::open(HOTKEY_FILE);
+
+        match file {
+            Ok(mut f) => {f.read_to_string(&mut buf).unwrap();}
+            Err(_) => {
+                match fs::create_dir("./config") {
+                    Ok(_) => {
+                        match File::options().create(true).write(true).open(HOTKEY_FILE){
+                            Ok(mut f) => {buf = HOTKEY_INITIAL.to_string();
+                                f.write_all(buf.as_bytes()).unwrap();}
+                            Err(err) => {panic!("{:?}",err)}
+                        };
+                    }
+                    Err(_) => {panic!("Couldn't create config folder")}
+                }
+
+
+
+
+
+                // let mut f = File::open(HOTKEY_FILE).unwrap();
+
+
+            }
+        }
+
         let mut hotkey_map: HashMap<u32, ((Option<hotkey::Modifiers>, Code), HotkeyAction)> = HashMap::new();
 
         buf.split("\n").for_each(|x| {
