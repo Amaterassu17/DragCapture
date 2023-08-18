@@ -354,7 +354,6 @@ impl DragApp {
         ))
     }
     pub fn save_image_to_disk(&mut self, format: &str, path: &str, filename: &str) -> Result<(), Box<dyn Error>> {
-
         //NOT MANAGED: OVERRIDE
         match format {
             ".png" => self.image.clone().save(format!("{}/{}.png", path, filename))?,
@@ -445,7 +444,7 @@ impl App for DragApp {
                     egui::containers::scroll_area::ScrollArea::both().show(ui, |ui| {
                         ui.vertical(|ui| {
                             ui.heading("Screenshot taken!");
-                            ui.label("You can now either modify it, save it or copy it to clipboard");
+                            ui.label("You can now either modify it, save it or copy it to clipboard.\nPress ESCAPE to exit the modify mode");
                             ui.horizontal(|ui| {
                                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                                     if egui::widgets::color_picker::color_picker_color32(ui, &mut self.color, egui::color_picker::Alpha::Opaque){
@@ -505,20 +504,60 @@ impl App for DragApp {
                                             self.reset_image_history();
                                         }
                                     });
+
+
+
+                                    if self.image_setting.drawing == true {
+                                        ui.separator();
+                                        match self.image_setting.drawing_type {
+                                            DrawingType::None => {}
+                                            DrawingType::Arrow => {ui.label("Press one time to set the starting point and another time to set the ending point");}
+                                            DrawingType::Circle => {ui.label("Press one time to set the center point of the circle and set the radius to your will");}
+                                            DrawingType::Rectangle => {ui.label("Press one time to set the starting point and another time to set the ending point");}
+                                            DrawingType::Line => {ui.label("Press one time to set the starting point and another time to set the ending point");}
+                                        }
+                                    }
+                                    else if self.image_setting.texting == true {
+                                        ui.separator();
+
+                                        ui.label("Press one time on the point you want to begin writing on and then start writing.\nPress ENTER to finish writing.");
+                                    }
+                                    else if self.image_setting.crop == true {
+                                        ui.separator();
+
+                                        ui.label("Resize the grey rectangle to your will and then double click inside the rectangle to crop the image.");
+                                    }
+                                    else if self.image_setting.free_drawing == true {
+                                        ui.separator();
+
+                                        ui.label("Press one time to set the starting point, then draw without holding your mouse down.\nFinally press another time to set the ending point.");
+                                    }
+
                                 });
                             });
-
                             ui.add_space(10.0);
                             ui.separator();
+
+                            //IMAGE PART
 
                             let color_image = DragApp::load_image_from_memory(self.image.clone()).unwrap();
                             self.current_width = color_image.size[0] as i32;
                             self.current_height = color_image.size[1] as i32;
                             let texture = ui.ctx().load_texture("ScreenShot", color_image, TextureOptions::default());
 
+
+
                             let image_w = ui.image(&texture, texture.size_vec2());
 
+
+                            //INPUT FOR THE IMAGE
+
                             ctx.input_mut(|i: &mut InputState| if self.image_setting.drawing == true {
+
+                                if i.key_pressed(Key::Escape) {
+                                    self.image_setting.drawing = false;
+                                }
+
                                 if self.image_setting.initial_pos.x == -1.0 && self.image_setting.initial_pos.y == -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary) {
                                     match i.pointer.interact_pos() {
                                         None => (),
@@ -565,6 +604,11 @@ impl App for DragApp {
                                     }
                                 }
                             } else if self.image_setting.free_drawing == true{
+
+                                if i.key_pressed(Key::Escape) {
+                                    self.image_setting.free_drawing = false;
+                                }
+
                                 if self.image_setting.initial_pos.x == -1.0 && self.image_setting.initial_pos.y == -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary) {
                                     match i.pointer.interact_pos() {
                                         None => (),
@@ -584,7 +628,7 @@ impl App for DragApp {
                                                 self.image= DynamicImage::ImageRgba8(imageproc::drawing::draw_line_segment(&self.image, (self.image_setting.free_drawing_points.last().unwrap().x, self.image_setting.free_drawing_points.last().unwrap().y), (m.x, m.y), Rgba(self.color.to_array())));
                                                 self.save_image_history();
                                                 self.image_back = self.image.clone();
-                                                
+
                                                 
                                                 self.image_setting.free_drawing = false;
                                                 self.image_setting.free_drawing_points = Vec::new();
@@ -604,7 +648,13 @@ impl App for DragApp {
                                 }
 
 
-                            }else if self.image_setting.crop == true {
+                            }
+                            else if self.image_setting.crop == true {
+
+                                if i.key_pressed(Key::Escape) {
+                                    self.image_setting.crop = false;
+                                }
+
                                 if self.image_setting.initial_pos.x == -1.0 && self.image_setting.initial_pos.y == -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary) {
                                     match i.pointer.interact_pos() {
                                         None => (),
@@ -688,7 +738,13 @@ impl App for DragApp {
                                         }
                                     }
                                 }
-                            } else if self.image_setting.texting == true {
+                            }
+                            else if self.image_setting.texting == true {
+
+                                if i.key_pressed(Key::Escape) {
+                                    self.image_setting.texting = false;
+                                }
+
                                 if self.image_setting.initial_pos.x == -1.0 && self.image_setting.initial_pos.y == -1.0 && i.pointer.button_clicked(egui::PointerButton::Primary) {
                                     match i.pointer.interact_pos() {
                                         None => (),
