@@ -4,16 +4,14 @@ mod imageprocessing_personal_lib;
 
 use imageprocessing_personal_lib::{CropRect, DrawingType, Corner, draw_rect, draw_arrow, ImageProcSetting};
 
-use hotkey_personal_lib::{HotkeyAction, HOTKEY_FILE, EguiKeyWrap, StringCodeWrap, HotkeySettings};
+use hotkey_personal_lib::{HotkeyAction, EguiKeyWrap, HotkeySettings};
 
 use std::borrow::Cow;
 use std::time::Duration;
-use std::{fs, cmp};
+use std::{cmp};
 use std::error::Error;
 use std::path::Path;
-use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::fs::File;
-use std::io::{Read, Write};
+use std::collections::{ VecDeque};
 
 use eframe::egui::{self, Direction, Modifiers, Vec2, Align, Key, Layout};
 use egui::{Context, TextureOptions, InputState};
@@ -29,9 +27,7 @@ use dirs;
 use chrono;
 use rusttype::*;
 
-use global_hotkey::hotkey;
 use global_hotkey::GlobalHotKeyEvent;
-use global_hotkey::{hotkey::{Code, HotKey}, GlobalHotKeyManager};
 use crate::WindowMode::{ChangeHotkeys, ErrorMode, Initial, Saved, Saving, Taken};
 
 
