@@ -195,11 +195,14 @@ impl DragApp {
     pub fn save_image_history(&mut self) -> () { self.image_history.push_front(self.image_back.clone()); }
 
     pub fn reset_image_history(&mut self) -> () {
-        let original_image = self.image_history.pop_back();
-        self.image = original_image.unwrap();
-        self.image_back = self.image.clone();
-        self.image_history.clear();
-        self.image_history.push_front(self.image.clone());
+        if self.image_history.len() > 1 {
+            let original_image = self.image_history.pop_back();
+            self.image = original_image.unwrap();
+            self.image_back = self.image.clone();
+            self.image_history.clear();
+            self.image_history.push_front(self.image.clone());
+        }
+
     }
 
     pub fn copy_to_clipboard(&mut self) {
