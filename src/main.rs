@@ -11,7 +11,7 @@ use std::time::Duration;
 use std::{cmp};
 use std::error::Error;
 use std::path::Path;
-use std::collections::{ VecDeque};
+use std::collections::{HashSet, VecDeque};
 
 use eframe::egui::{self, Direction, Modifiers, Vec2, Align, Key, Layout};
 use egui::{Context, TextureOptions, InputState};
@@ -228,7 +228,6 @@ impl DragApp {
         ))
     }
     pub fn save_image_to_disk(&mut self, format: &str, path: &str, filename: &str) -> Result<(), Box<dyn Error>> {
-        //NOT MANAGED: OVERRIDE
         match format {
             ".png" => self.image.clone().save(format!("{}/{}.png", path, filename))?,
             ".gif" => self.image.clone().save(format!("{}/{}.gif", path, filename))?,
@@ -250,7 +249,6 @@ impl DragApp {
 }
 
 impl App for DragApp {
-    //UPDATE è FONDAMENTALE. CI DEVE ESSERE SEMPRE
     fn update(&mut self, ctx: &Context, frame: &mut Frame) {
         if self.hotkey_settings.hotkey_created == false {
             let res = self.hotkey_settings.load_hotkey_map();
@@ -276,9 +274,7 @@ impl App for DragApp {
                         ui.separator();
                         if ui.button("Take a screenshot!").clicked() {
                             self.take_screenshot();
-                            frame.set_minimized(false);
-                            frame.set_visible(true);
-                            frame.focus();
+
                         }
 
                         if ui.button("Delay Timer = ".to_owned() + &self.delay_timer.to_string()).clicked() {
@@ -302,12 +298,10 @@ impl App for DragApp {
 
                         ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
                             if ui.button("Customize Hotkeys").clicked() {
-                                //ROUTINE PER CAMBIARE GLI HOTKEYS. deve essere tipo una sotto finestra da cui togli focus e non puoi ricliccare su quella originale finchè non chiudi la sottofinestra. Al massimo ci confrontiamo con alessio
                                 self.mode = ChangeHotkeys;
                             }
 
                             if ui.button("Quit").clicked() {
-                                //Routine per chiudere il programma
                                 std::process::exit(0);
                             }
                         });
@@ -423,6 +417,7 @@ impl App for DragApp {
 
 
                             let image_w = ui.image(&texture, texture.size_vec2());
+
 
 
                             //INPUT FOR THE IMAGE
@@ -800,15 +795,22 @@ impl App for DragApp {
                         }
 
 
-                        ctx.input(|i| if i.key_pressed(Key::Enter) {
+                        ctx.input(|i| if i.key_pressed(Key::Enter) && self.hotkey_ui_status == true {
+
+                            println!("{:?}", i.keys_down.len());
+
+
+
                             let pressed_modifiers = i.modifiers;
                             let mut keys_pressed = i.keys_down.clone();
-                            keys_pressed.remove(&Key::Enter);
 
+                            keys_pressed.remove(&Key::Enter);
 
                             let changing_hotkey_index = self.changing_hotkey.iter().position(|&x| x == true).unwrap();
                             let old_hotkey_strings = self.hotkeys_strings[changing_hotkey_index].clone().split(" + ").map(|x| x.to_string()).collect::<Vec<String>>();
+
                             if keys_pressed.len() != 0 {
+
                                 let mut buf: String = "".to_string();
                                 //Take the only element left in an hashset
                                 let key = keys_pressed.iter().next().unwrap();
@@ -838,7 +840,8 @@ impl App for DragApp {
                                 let new_hotkey_strings = self.hotkeys_strings[changing_hotkey_index].clone().split(" + ").map(|x| x.to_string()).collect::<Vec<String>>();
 
                                 self.hotkey_settings.update_hotkey_map(new_hotkey_strings, old_hotkey_strings);
-                            } else {
+                            }
+                            else {
                                 self.hotkey_ui_status = false;
                                 for changing_hotkey in self.changing_hotkey.iter_mut() {
                                     *changing_hotkey = false;
@@ -858,7 +861,6 @@ impl App for DragApp {
                                 self.hotkeys_enabled = true;
                             }
                             if ui.button("Quit").clicked() {
-                                //Routine per chiudere il programma
                                 std::process::exit(0);
                             }
                         });
@@ -874,7 +876,6 @@ impl App for DragApp {
                             self.mode = Initial;
                         }
                         if ui.button("Quit").clicked() {
-                            //Routine per chiudere il programma
                             std::process::exit(0);
                         }
                     });
@@ -888,7 +889,6 @@ impl App for DragApp {
                         self.mode = Initial;
                     }
                     if ui.button("Quit").clicked() {
-                        //Routine per chiudere il programma
                         std::process::exit(0);
                     }
                 });
